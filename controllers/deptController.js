@@ -1,6 +1,5 @@
 const Department = require('../models/Department');
 
-// POST /api/v1/departments - Add new department (Principal only)
 exports.addDepartment = async (req, res) => {
   try {
     const { name, code } = req.body;

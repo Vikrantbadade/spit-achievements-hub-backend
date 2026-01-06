@@ -1,7 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const Achievement = require('../models/Achievement');
-const { protect } = require('../middleware/authMiddleware');
+const { protect , authorize} = require('../middleware/authMiddleware');
+const { downloadExcelReport } = require('../controllers/reportController');
+
+// Global Middleware
+router.use(protect);
+
+// GET /api/v1/reports/export/excel
+// Accessible by HOD and Principal
+router.get('/export/excel', authorize('HOD', 'Principal'), downloadExcelReport);
+
+module.exports = router;
+
 
 router.get('/generate', protect, async (req, res) => {
   try {
