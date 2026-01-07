@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,59 +27,48 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const mockAchievements = [
-  {
-    id: 1,
-    title: "Research Paper on Deep Learning",
-    category: "Publication",
-    date: "2025-12-20",
-    status: "approved",
-  },
-  {
-    id: 2,
-    title: "Patent for IoT Device",
-    category: "Patent",
-    date: "2025-11-15",
-    status: "pending",
-  },
-  {
-    id: 3,
-    title: "Best Paper Award - ICICT 2025",
-    category: "Award",
-    date: "2025-10-10",
-    status: "approved",
-  },
-  {
-    id: 4,
-    title: "FDP on Cloud Computing",
-    category: "FDP",
-    date: "2025-09-05",
-    status: "approved",
-  },
-  {
-    id: 5,
-    title: "Funded Project - AICTE",
-    category: "Project",
-    date: "2025-08-20",
-    status: "pending",
-  },
-];
-
 const MyAchievements = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
+  const [achievements, setAchievements] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredAchievements = mockAchievements.filter((achievement) => {
+  const fetchAchievements = async () => {
+    try {
+      const { data } = await api.get('/faculty/achievements');
+      setAchievements(data);
+    } catch (error) {
+      console.error("Failed to fetch achievements", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAchievements();
+  }, []);
+
+  const filteredAchievements = achievements.filter((achievement) => {
     const matchesSearch = achievement.title
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesCategory =
       filterCategory === "all" ||
-      achievement.category.toLowerCase() === filterCategory;
+      achievement.category.toLowerCase() === filterCategory.toLowerCase();
     return matchesSearch && matchesCategory;
   });
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure?")) return;
+    try {
+      await api.delete(`/faculty/achievement/${id}`);
+      fetchAchievements();
+    } catch (error) {
+      console.error("Delete failed", error);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -123,57 +113,44 @@ const MyAchievements = () => {
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAchievements.map((achievement) => (
-              <TableRow key={achievement.id}>
-                <TableCell className="font-medium">
-                  {achievement.title}
-                </TableCell>
-                <TableCell>{achievement.category}</TableCell>
-                <TableCell>
-                  {new Date(achievement.date).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      achievement.status === "approved"
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {achievement.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      onClick={() => console.log("eye clicked")}
-                      variant="ghost"
-                      size="icon"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setSelectedAchievement(achievement);
-                        setIsEditOpen(true);
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {loading ? (
+              <TableRow><TableCell colSpan={4} className="text-center py-4">Loading...</TableCell></TableRow>
+            ) : filteredAchievements.length === 0 ? (
+              <TableRow><TableCell colSpan={4} className="text-center py-4">No achievements found</TableCell></TableRow>
+            ) : (
+              filteredAchievements.map((achievement) => (
+                <TableRow key={achievement._id}>
+                  <TableCell className="font-medium">
+                    {achievement.title}
+                  </TableCell>
+                  <TableCell>{achievement.category}</TableCell>
+                  <TableCell>
+                    {new Date(achievement.achievementDate).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedAchievement(achievement);
+                          setIsEditOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(achievement._id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>

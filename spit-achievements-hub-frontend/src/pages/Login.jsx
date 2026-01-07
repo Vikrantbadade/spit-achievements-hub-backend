@@ -100,6 +100,9 @@ const Login = () => {
         }
       }
 
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('userInfo', JSON.stringify(data.user));
+
       login({
         ...data.user,
         role: data.role,

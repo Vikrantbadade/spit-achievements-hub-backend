@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,49 +11,35 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Eye, BarChart3 } from "lucide-react";
-import { departments, achievements } from "../../data/instituteData";
 
 const AllDepartments = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const departmentRows = useMemo(() => {
-    const totalsByDept = achievements.reduce((acc, achievement) => {
-      const { departmentId, category } = achievement;
-      if (!acc[departmentId]) {
-        acc[departmentId] = {
-          publications: 0,
-          patents: 0,
-          awards: 0,
-          fdps: 0,
-          projects: 0,
-          total: 0,
-        };
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        // Using overview endpoint because it contains the calculated stats per department
+        const response = await api.get('/principal/overview');
+        if (response.data && response.data.departmentSummary) {
+          setDepartments(response.data.departmentSummary);
+        }
+      } catch (error) {
+        console.error("Failed to fetch department data", error);
+      } finally {
+        setLoading(false);
       }
-      acc[departmentId][`${category}s`] =
-        (acc[departmentId][`${category}s`] || 0) + 1;
-      acc[departmentId].total += 1;
-      return acc;
-    }, {});
-
-    return departments.map((dept) => {
-      const totals = totalsByDept[dept.id] || {};
-      return {
-        ...dept,
-        publications: totals.publications || 0,
-        patents: totals.patents || 0,
-        awards: totals.awards || 0,
-        fdps: totals.fdps || 0,
-        projects: totals.projects || 0,
-        total: totals.total || 0,
-      };
-    });
+    };
+    fetchDepartments();
   }, []);
 
-  const filteredDepartments = departmentRows.filter(
+  const filteredDepartments = departments.filter(
     (dept) =>
-      dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dept.hod.toLowerCase().includes(searchTerm.toLowerCase())
+      dept.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) return <div>Loading departments...</div>;
 
   return (
     <div className="space-y-6">
@@ -80,33 +67,33 @@ const AllDepartments = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Department</TableHead>
-              <TableHead>HOD</TableHead>
+              {/* <TableHead>HOD</TableHead> */ /* HOD Name not always available in stats, omitting for now */}
               <TableHead className="text-center">Faculty</TableHead>
               <TableHead className="text-center">Publications</TableHead>
               <TableHead className="text-center">Patents</TableHead>
               <TableHead className="text-center">Awards</TableHead>
               <TableHead className="text-center">FDPs</TableHead>
-              <TableHead className="text-center">Projects</TableHead>
-              <TableHead className="text-center">Total</TableHead>
+              {/* <TableHead className="text-center">Projects</TableHead> */ /* Projects not always in stats */}
+              {/* <TableHead className="text-center">Total</TableHead> */}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredDepartments.map((dept) => (
-              <TableRow key={dept.id}>
+              <TableRow key={dept.departmentId}>
                 <TableCell className="font-medium">{dept.name}</TableCell>
-                <TableCell>{dept.hod}</TableCell>
-                <TableCell className="text-center">{dept.faculty}</TableCell>
+                {/* <TableCell>{dept.hod}</TableCell> */}
+                <TableCell className="text-center">{dept.facultyCount}</TableCell>
                 <TableCell className="text-center">
                   {dept.publications}
                 </TableCell>
                 <TableCell className="text-center">{dept.patents}</TableCell>
                 <TableCell className="text-center">{dept.awards}</TableCell>
                 <TableCell className="text-center">{dept.fdps}</TableCell>
-                <TableCell className="text-center">{dept.projects}</TableCell>
-                <TableCell className="text-center font-semibold">
+                {/* <TableCell className="text-center">{dept.projects}</TableCell> */}
+                {/* <TableCell className="text-center font-semibold">
                   {dept.total}
-                </TableCell>
+                </TableCell> */}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="icon">
@@ -119,6 +106,13 @@ const AllDepartments = () => {
                 </TableCell>
               </TableRow>
             ))}
+            {filteredDepartments.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-6">
+                  No departments found.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

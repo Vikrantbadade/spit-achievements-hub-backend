@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,63 +14,35 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Eye, Mail } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
-const mockFaculty = [
-  {
-    id: 1,
-    name: "Dr. Sharma",
-    email: "sharma@spit.ac.in",
-    designation: "Professor",
-    publications: 15,
-    patents: 3,
-    awards: 5,
-  },
-  {
-    id: 2,
-    name: "Prof. Patel",
-    email: "patel@spit.ac.in",
-    designation: "Associate Professor",
-    publications: 12,
-    patents: 2,
-    awards: 3,
-  },
-  {
-    id: 3,
-    name: "Dr. Kumar",
-    email: "kumar@spit.ac.in",
-    designation: "Assistant Professor",
-    publications: 8,
-    patents: 1,
-    awards: 4,
-  },
-  {
-    id: 4,
-    name: "Dr. Gupta",
-    email: "gupta@spit.ac.in",
-    designation: "Professor",
-    publications: 20,
-    patents: 5,
-    awards: 7,
-  },
-  {
-    id: 5,
-    name: "Prof. Singh",
-    email: "singh@spit.ac.in",
-    designation: "Associate Professor",
-    publications: 10,
-    patents: 2,
-    awards: 2,
-  },
-];
-
 const DepartmentFaculty = () => {
+  const [facultyList, setFacultyList] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const { user } = useAuth();
 
-  const filteredFaculty = mockFaculty.filter(
+  useEffect(() => {
+    const fetchFaculty = async () => {
+      try {
+        const response = await api.get('/hod/faculty-list');
+        // If the backend returns stats in the faculty object, great. 
+        // Otherwise we might need to adjust or these will be undefined (showing nothing or 0).
+        setFacultyList(response.data);
+      } catch (error) {
+        console.error("Failed to fetch department faculty", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFaculty();
+  }, []);
+
+  const filteredFaculty = facultyList.filter(
     (faculty) =>
       faculty.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       faculty.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) return <div>Loading faculty list...</div>;
 
   return (
     <div className="space-y-6">
@@ -78,7 +51,7 @@ const DepartmentFaculty = () => {
           Department Faculty
         </h1>
         <p className="text-muted-foreground mt-2">
-          {user?.department} - Faculty Members
+          {user?.department?.name || user?.department} - Faculty Members
         </p>
       </div>
 
@@ -98,15 +71,14 @@ const DepartmentFaculty = () => {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Designation</TableHead>
-              <TableHead className="text-center">Publications</TableHead>
-              <TableHead className="text-center">Patents</TableHead>
-              <TableHead className="text-center">Awards</TableHead>
+              <TableHead className="text-center">Department</TableHead>
+              {/* Stats columns removed if data not available immediately, or kept as placeholders */}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredFaculty.map((faculty) => (
-              <TableRow key={faculty.id}>
+              <TableRow key={faculty._id}>
                 <TableCell>
                   <div>
                     <p className="font-medium">{faculty.name}</p>
@@ -116,13 +88,12 @@ const DepartmentFaculty = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{faculty.designation}</Badge>
+                  <Badge variant="secondary">{faculty.role}</Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  {faculty.publications}
+                  {/* Handle populate if department is object or string */}
+                  {faculty.department?.name || faculty.department}
                 </TableCell>
-                <TableCell className="text-center">{faculty.patents}</TableCell>
-                <TableCell className="text-center">{faculty.awards}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="icon">
@@ -135,6 +106,13 @@ const DepartmentFaculty = () => {
                 </TableCell>
               </TableRow>
             ))}
+            {filteredFaculty.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                  No faculty found.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

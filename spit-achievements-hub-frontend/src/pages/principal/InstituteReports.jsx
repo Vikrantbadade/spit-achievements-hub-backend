@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -36,14 +37,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { achievements, departments } from "../../data/instituteData";
+import { ChartContainer } from "@/components/ui/chart";
 
 const monthOptions = [
   "january", "february", "march", "april", "may", "june",
@@ -62,9 +56,15 @@ const buildStats = (items) => {
   };
 
   for (const item of items) {
-    base[`${item.category}s`] = (base[`${item.category}s`] || 0) + 1;
+    const cat = item.category?.toLowerCase() || '';
+    if (cat.includes("publication")) base.publications++;
+    else if (cat.includes("patent")) base.patents++;
+    else if (cat.includes("award")) base.awards++;
+    else if (cat.includes("fdp") || cat.includes("workshop")) base.fdps++;
+    else if (cat.includes("project")) base.projects++;
+
     base.total += 1;
-    base.activeDepartments.add(item.departmentId);
+    if (item.department) base.activeDepartments.add(item.department);
   }
 
   return {
@@ -75,10 +75,13 @@ const buildStats = (items) => {
 
 const aggregateDepartments = (items) => {
   const grouped = items.reduce((acc, item) => {
-    const { departmentId, department, category } = item;
-    if (!acc[departmentId]) {
-      acc[departmentId] = {
-        name: department,
+    // Use department Name as ID
+    const depName = item.department || "Unknown";
+    const cat = item.category?.toLowerCase() || '';
+
+    if (!acc[depName]) {
+      acc[depName] = {
+        name: depName,
         publications: 0,
         patents: 0,
         awards: 0,
@@ -87,9 +90,14 @@ const aggregateDepartments = (items) => {
         total: 0,
       };
     }
-    acc[departmentId][`${category}s`] =
-      (acc[departmentId][`${category}s`] || 0) + 1;
-    acc[departmentId].total += 1;
+
+    if (cat.includes("publication")) acc[depName].publications++;
+    else if (cat.includes("patent")) acc[depName].patents++;
+    else if (cat.includes("award")) acc[depName].awards++;
+    else if (cat.includes("fdp") || cat.includes("workshop")) acc[depName].fdps++;
+    else if (cat.includes("project")) acc[depName].projects++;
+
+    acc[depName].total += 1;
     return acc;
   }, {});
 
@@ -98,37 +106,57 @@ const aggregateDepartments = (items) => {
 
 const InstituteReports = () => {
   const [selectedMonth, setSelectedMonth] = useState("december");
-  const [selectedYear, setSelectedYear] = useState("2025");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedSemester, setSelectedSemester] = useState("odd");
   const [activeView, setActiveView] = useState("monthly");
 
-  const totalFaculty = useMemo(
-    () => departments.reduce((sum, dept) => sum + (dept.faculty || 0), 0),
-    []
-  );
+  const [achievements, setAchievements] = useState([]);
+  const [statsData, setStatsData] = useState({ totalFaculty: 0, totalDepartments: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [achievementsRes, statsRes] = await Promise.all([
+          api.get('/principal/achievements'),
+          api.get('/principal/overview') // Reusing overview or stats logic
+        ]);
+        setAchievements(achievementsRes.data);
+        setStatsData({
+          totalFaculty: statsRes.data.totalFaculty,
+          totalDepartments: statsRes.data.totalDepartments
+        });
+      } catch (error) {
+        console.error("Failed to fetch Institute Reports", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const monthIndex = monthOptions.indexOf(selectedMonth);
   const monthlyAchievements = useMemo(
     () =>
       achievements.filter((achievement) => {
-        const date = new Date(achievement.date);
+        const date = new Date(achievement.achievementDate);
         return (
           date.getFullYear() === Number(selectedYear) &&
           date.getMonth() === monthIndex
         );
       }),
-    [selectedYear, monthIndex]
+    [achievements, selectedYear, monthIndex]
   );
 
   const semesterAchievements = useMemo(() => {
     const isOdd = selectedSemester === "odd";
     return achievements.filter((achievement) => {
-      const date = new Date(achievement.date);
+      const date = new Date(achievement.achievementDate);
       if (date.getFullYear() !== Number(selectedYear)) return false;
       const month = date.getMonth();
       return isOdd ? month >= 6 : month < 6;
     });
-  }, [selectedSemester, selectedYear]);
+  }, [achievements, selectedSemester, selectedYear]);
 
   const monthlyStats = useMemo(
     () => buildStats(monthlyAchievements),
@@ -146,7 +174,7 @@ const InstituteReports = () => {
   const monthlyTrend = useMemo(() => {
     return monthOptions.map((month, idx) => {
       const monthItems = achievements.filter((a) => {
-        const d = new Date(a.date);
+        const d = new Date(a.achievementDate);
         return d.getFullYear() === Number(selectedYear) && d.getMonth() === idx;
       });
       const stats = buildStats(monthItems);
@@ -160,7 +188,7 @@ const InstituteReports = () => {
         total: stats.total,
       };
     });
-  }, [selectedYear]);
+  }, [achievements, selectedYear]);
 
   const chartConfig = {
     publications: { label: "Publications", color: "hsl(217, 91%, 60%)" },
@@ -177,6 +205,7 @@ const InstituteReports = () => {
         key,
         name: chartConfig[key].label,
         value: semesterStats[key] || 0,
+        color: chartConfig[key].color
       }))
       .filter((item) => item.value > 0);
   }, [semesterStats]);
@@ -197,12 +226,12 @@ const InstituteReports = () => {
   );
 
   const monthCards = [
-    { title: "Total Achievements", value: monthlyStats.total, icon: Trophy, trend: "+12%" },
-    { title: "Publications", value: monthlyStats.publications, icon: BookOpen, trend: "+8%" },
-    { title: "Patents", value: monthlyStats.patents, icon: FileText, trend: "+15%" },
-    { title: "Awards", value: monthlyStats.awards, icon: Award, trend: "+5%" },
-    { title: "FDPs", value: monthlyStats.fdps, icon: Users, trend: "+10%" },
-    { title: "Projects", value: monthlyStats.projects, icon: Briefcase, trend: "+7%" },
+    { title: "Total Achievements", value: monthlyStats.total, icon: Trophy, trend: "—" },
+    { title: "Publications", value: monthlyStats.publications, icon: BookOpen },
+    { title: "Patents", value: monthlyStats.patents, icon: FileText },
+    { title: "Awards", value: monthlyStats.awards, icon: Award },
+    { title: "FDPs", value: monthlyStats.fdps, icon: Users },
+    { title: "Projects", value: monthlyStats.projects, icon: Briefcase },
     {
       title: "Active Departments",
       value: monthlyStats.activeDepartments,
@@ -212,17 +241,16 @@ const InstituteReports = () => {
   ];
 
   const semesterCards = [
-    { title: "Total Achievements", value: semesterStats.total, icon: Trophy, trend: "+18%" },
+    { title: "Total Achievements", value: semesterStats.total, icon: Trophy, trend: "—" },
     {
       title: "Publications",
       value: semesterStats.publications,
       icon: BookOpen,
-      trend: "+14%"
     },
-    { title: "Patents", value: semesterStats.patents, icon: FileText, trend: "+22%" },
-    { title: "Awards", value: semesterStats.awards, icon: Award, trend: "+9%" },
-    { title: "FDPs", value: semesterStats.fdps, icon: Users, trend: "+16%" },
-    { title: "Projects", value: semesterStats.projects, icon: Briefcase, trend: "+11%" },
+    { title: "Patents", value: semesterStats.patents, icon: FileText },
+    { title: "Awards", value: semesterStats.awards, icon: Award },
+    { title: "FDPs", value: semesterStats.fdps, icon: Users },
+    { title: "Projects", value: semesterStats.projects, icon: Briefcase },
     {
       title: "Active Departments",
       value: semesterStats.activeDepartments,
@@ -238,9 +266,9 @@ const InstituteReports = () => {
           <p className="font-semibold text-sm mb-2">{label}</p>
           {payload.map((entry, index) => (
             <div key={index} className="flex items-center gap-2 text-xs">
-              <div 
-                className="w-3 h-3 rounded-full" 
-                style={{ backgroundColor: entry.color }}
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: entry.color || entry.payload.fill }}
               />
               <span className="text-muted-foreground">{entry.name}:</span>
               <span className="font-medium">{entry.value}</span>
@@ -251,6 +279,8 @@ const InstituteReports = () => {
     }
     return null;
   };
+
+  if (loading) return <div className="text-center py-20">Loading Reports...</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-4 md:p-6 lg:p-8 space-y-6">
@@ -268,11 +298,11 @@ const InstituteReports = () => {
         <div className="flex gap-2">
           <Badge variant="outline" className="px-3 py-1.5">
             <Building2 className="h-3 w-3 mr-1.5" />
-            {departments.length} Departments
+            {statsData.totalDepartments} Departments
           </Badge>
           <Badge variant="outline" className="px-3 py-1.5">
             <Users className="h-3 w-3 mr-1.5" />
-            {totalFaculty} Faculty
+            {statsData.totalFaculty} Faculty
           </Badge>
         </div>
       </div>
@@ -333,13 +363,6 @@ const InstituteReports = () => {
                 {monthCards.map((stat) => (
                   <div key={stat.title} className="relative group">
                     <StatCard {...stat} />
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {stat.trend !== "—" && (
-                        <Badge variant="secondary" className="text-xs">
-                          {stat.trend}
-                        </Badge>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -396,13 +419,6 @@ const InstituteReports = () => {
                 {semesterCards.map((stat) => (
                   <div key={stat.title} className="relative group">
                     <StatCard {...stat} />
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {stat.trend !== "—" && (
-                        <Badge variant="secondary" className="text-xs">
-                          {stat.trend}
-                        </Badge>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -488,8 +504,8 @@ const InstituteReports = () => {
                           />
                         ))}
                       </Pie>
-                      <Legend 
-                        verticalAlign="bottom" 
+                      <Legend
+                        verticalAlign="bottom"
                         height={36}
                         iconType="circle"
                         formatter={(value) => <span className="text-xs">{value}</span>}
@@ -511,23 +527,23 @@ const InstituteReports = () => {
                 <ChartContainer config={chartConfig} className="w-full h-[280px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={monthlyTrend}>
-                      <CartesianGrid 
-                        strokeDasharray="3 3" 
+                      <CartesianGrid
+                        strokeDasharray="3 3"
                         stroke="hsl(var(--border))"
                         opacity={0.3}
                       />
-                      <XAxis 
-                        dataKey="month" 
+                      <XAxis
+                        dataKey="month"
                         tick={{ fontSize: 12 }}
                         stroke="hsl(var(--muted-foreground))"
                       />
-                      <YAxis 
-                        allowDecimals={false} 
+                      <YAxis
+                        allowDecimals={false}
                         tick={{ fontSize: 12 }}
                         stroke="hsl(var(--muted-foreground))"
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
+                      <Legend
                         iconType="circle"
                         formatter={(value) => <span className="text-xs">{value}</span>}
                       />
@@ -554,26 +570,26 @@ const InstituteReports = () => {
               <ChartContainer config={chartConfig} className="w-full h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={departmentStackedData}>
-                    <CartesianGrid 
-                      strokeDasharray="3 3" 
+                    <CartesianGrid
+                      strokeDasharray="3 3"
                       stroke="hsl(var(--border))"
                       opacity={0.3}
                     />
-                    <XAxis 
-                      dataKey="name" 
+                    <XAxis
+                      dataKey="name"
                       tick={{ fontSize: 11 }}
                       angle={-45}
                       textAnchor="end"
                       height={80}
                       stroke="hsl(var(--muted-foreground))"
                     />
-                    <YAxis 
-                      allowDecimals={false} 
+                    <YAxis
+                      allowDecimals={false}
                       tick={{ fontSize: 12 }}
                       stroke="hsl(var(--muted-foreground))"
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend 
+                    <Legend
                       iconType="circle"
                       formatter={(value) => <span className="text-xs">{value}</span>}
                     />

@@ -38,18 +38,20 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 348 70% 25%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 42 80% 55%;
-    --sidebar-primary-foreground: 0 0% 10%;
-    --sidebar-accent: 348 60% 30%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 348 50% 35%;
+    --sidebar-background: 348 70% 35%; /* Primary Maroon */
+    --sidebar-foreground: 0 0% 100%; /* White text */
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 348 70% 35%;
+    --sidebar-accent: 348 60% 45%; /* Lighter Maroon for hover */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 348 60% 30%;
     --sidebar-ring: 42 80% 55%;
 
     /* Custom tokens */
     --gradient-primary: linear-gradient(135deg, hsl(348 70% 35%) 0%, hsl(348 60% 25%) 100%);
     --gradient-gold: linear-gradient(135deg, hsl(42 80% 55%) 0%, hsl(38 75% 45%) 100%);
+    --gradient-card-1: linear-gradient(to bottom right, #ffffff, #fff1f2);
+    --gradient-card-2: linear-gradient(to bottom right, #ffffff, #fffbeb);
     --shadow-elegant: 0 10px 40px -10px hsl(348 70% 35% / 0.2);
   }
 

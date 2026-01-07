@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,13 +14,15 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const categories = [
-  { value: "publication", label: "Publication" },
-  { value: "patent", label: "Patent" },
-  { value: "award", label: "Award" },
-  { value: "fdp", label: "FDP/Workshop" },
-  { value: "project", label: "Funded Project" },
-  { value: "conference", label: "Conference Presentation" },
-  { value: "other", label: "Other" },
+  { value: "Publication", label: "Publication" },
+  { value: "Patent", label: "Patent" },
+  { value: "Award", label: "Award" },
+  { value: "FDP", label: "FDP/Workshop" },
+  { value: "Project", label: "Funded Project" },
+  { value: "Conference", label: "Conference Presentation" },
+  { value: "Seminar", label: "Seminar" },
+  { value: "STTP", label: "STTP" },
+  { value: "Other", label: "Other" },
 ];
 
 const EditAchievement = ({ achievement, onClose }) => {
@@ -40,12 +43,12 @@ const EditAchievement = ({ achievement, onClose }) => {
         title: achievement.title,
         category: achievement.category,
         description: achievement.description,
-        date: achievement.date,
+        date: achievement.achievementDate ? new Date(achievement.achievementDate).toISOString().split('T')[0] : "",
       });
     }
   }, [achievement]);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
 
     if (!formData.title || !formData.category || !formData.date) {
@@ -59,16 +62,46 @@ const EditAchievement = ({ achievement, onClose }) => {
 
     setIsLoading(true);
 
-    // 🔁 Replace with API call
-    setTimeout(() => {
+    try {
+      const payload = {
+        title: formData.title,
+        category: formData.category,
+        description: formData.description,
+        achievementDate: formData.date
+      };
+
+      if (achievement._id) {
+        await api.put(`/faculty/achievement/${achievement._id}`, payload);
+      }
+
       toast({
         title: "Updated",
         description: "Achievement updated successfully",
       });
 
+      if (onClose) onClose();
+      // Ideally we should trigger a content refresh in parent.
+      // MyAchievements listens to nothing?
+      // Ah, onClose in MyAchievements currently just closes modal.
+      // I need to trigger refresh.
+      // But `MyAchievements` fetches on mount.
+      // I should pass a "onSuccess" callback or just refresh page?
+      // Or `MyAchievements` re-fetches when edit closes?
+      // I'll reload window for simplicity or assume user will refresh.
+      // Actually I can call `window.location.reload()` here, or pass a callback.
+      // Let's rely on reload for now or parent passing refresh.
+      window.location.reload();
+
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to update achievement",
+        variant: "destructive"
+      });
+    } finally {
       setIsLoading(false);
-      onClose(); // ✅ close modal after save
-    }, 800);
+    }
   };
 
   return (

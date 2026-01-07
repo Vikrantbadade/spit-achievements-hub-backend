@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,16 +12,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import StatCard from "../../components/StatCard";
 import { useAuth } from "../../context/AuthContext";
-import { 
-  Download, 
-  BookOpen, 
-  FileText, 
-  Trophy, 
-  Award, 
+import {
+  Download,
+  BookOpen,
+  FileText,
+  Trophy,
   Users,
   TrendingUp,
   Building2,
-  BarChart3
+  BarChart3,
+  Award
 } from "lucide-react";
 import {
   Bar,
@@ -37,45 +38,119 @@ import {
 } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 
-
 const HODReports = () => {
   const [selectedMonth, setSelectedMonth] = useState("december");
-  const [selectedYear, setSelectedYear] = useState("2025");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedSemester, setSelectedSemester] = useState("odd");
   const { user } = useAuth();
+  const [achievements, setAchievements] = useState([]);
+  const [facultyCount, setFacultyCount] = useState(0); // Need separate fetch or estimate
+  const [loading, setLoading] = useState(true);
 
+  // Fetch Data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [achievementsRes, statsRes] = await Promise.all([
+          api.get('/hod/achievements'),
+          api.get('/hod/stats') // To get totalFaculty
+        ]);
+        setAchievements(achievementsRes.data);
+        setFacultyCount(statsRes.data.totalFaculty || 0);
+      } catch (error) {
+        console.error("Failed to fetch HOD reports data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const monthlyStats = [
-    { title: "Faculty Active", value: 25, icon: Users, trend: "+8%" },
-    { title: "Publications", value: 8, icon: BookOpen, trend: "+12%" },
-    { title: "Patents", value: 2, icon: FileText, trend: "+15%" },
-    { title: "Awards", value: 3, icon: Trophy, trend: "+20%" },
-  ];
+  const availableYears = useMemo(() => {
+    const years = [...new Set([
+      new Date().getFullYear().toString(),
+      ...achievements.map(a => new Date(a.achievementDate).getFullYear().toString())
+    ])];
+    return years.sort((a, b) => b - a);
+  }, [achievements]);
 
+  // Filter Logic
+  const getFilteredData = (view) => {
+    return achievements.filter(ach => {
+      const date = new Date(ach.achievementDate);
+      const achYear = date.getFullYear().toString();
 
-  const semesterStats = [
-    { title: "Total Faculty", value: 25, icon: Users, trend: "+4%" },
-    { title: "Total Publications", value: 48, icon: BookOpen, trend: "+18%" },
-    { title: "Total Patents", value: 12, icon: FileText, trend: "+25%" },
-    { title: "Total Awards", value: 18, icon: Trophy, trend: "+22%" },
-  ];
+      if (achYear !== selectedYear) return false;
 
-  // Top performing faculty data
-  const topFacultyData = useMemo(() => [
-    { name: "Dr. Sharma", achievements: 12 },
-    { name: "Dr. Patel", achievements: 10 },
-    { name: "Dr. Kumar", achievements: 9 },
-    { name: "Dr. Singh", achievements: 8 },
-    { name: "Dr. Verma", achievements: 7 },
-  ], []);
+      if (view === "monthly") {
+        const achMonth = date.toLocaleString('default', { month: 'long' }).toLowerCase();
+        return achMonth === selectedMonth;
+      } else if (view === "semester") {
+        const monthIdx = date.getMonth();
+        // Odd: Jul(6)-Dec(11), Even: Jan(0)-Jun(5)
+        if (selectedSemester === "odd") return monthIdx >= 6;
+        return monthIdx <= 5;
+      }
+      return true; // yearly (or just year matched)
+    });
+  };
+
+  const monthlyData = getFilteredData('monthly');
+  const semesterData = getFilteredData('semester');
+
+  // Stats Calculation
+  const calculateStats = (data, totalFaculty) => {
+    const stats = { publications: 0, patents: 0, awards: 0, fdps: 0 };
+    data.forEach(ach => {
+      const cat = ach.category?.toLowerCase() || '';
+      if (cat.includes("publication")) stats.publications++;
+      else if (cat.includes("patent")) stats.patents++;
+      else if (cat.includes("award")) stats.awards++;
+      else if (cat.includes("fdp") || cat.includes("workshop")) stats.fdps++;
+    });
+    return [
+      { title: "Faculty Active", value: totalFaculty, icon: Users }, // This is static/total for now
+      { title: "Publications", value: stats.publications, icon: BookOpen },
+      { title: "Patents", value: stats.patents, icon: FileText },
+      { title: "Awards", value: stats.awards, icon: Trophy },
+    ];
+  };
+
+  const monthlyStats = calculateStats(monthlyData, facultyCount);
+  const semesterStats = calculateStats(semesterData, facultyCount);
+
+  // Top performing faculty data (Semester based usually? Or Year? Let's use Year for charts)
+  const yearlyData = getFilteredData('yearly');
+
+  const topFacultyData = useMemo(() => {
+    const counts = {};
+    yearlyData.forEach(ach => {
+      const name = ach.faculty?.name || 'Unknown';
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, achievements: count }))
+      .sort((a, b) => b.achievements - a.achievements)
+      .slice(0, 5);
+  }, [yearlyData]);
 
   // Achievement distribution data
-  const achievementDistribution = useMemo(() => [
-    { name: "Publications", value: 48, color: "hsl(217, 91%, 60%)" },
-    { name: "Patents", value: 12, color: "hsl(142, 76%, 36%)" },
-    { name: "Awards", value: 18, color: "hsl(24, 95%, 53%)" },
-    { name: "FDPs", value: 22, color: "hsl(262, 83%, 58%)" },
-  ], []);
+  const achievementDistribution = useMemo(() => {
+    const stats = { publications: 0, patents: 0, awards: 0, fdps: 0 };
+    yearlyData.forEach(ach => {
+      const cat = ach.category?.toLowerCase() || '';
+      if (cat.includes("publication")) stats.publications++;
+      else if (cat.includes("patent")) stats.patents++;
+      else if (cat.includes("award")) stats.awards++;
+      else if (cat.includes("fdp")) stats.fdps++;
+    });
+    return [
+      { name: "Publications", value: stats.publications, color: "hsl(217, 91%, 60%)" },
+      { name: "Patents", value: stats.patents, color: "hsl(142, 76%, 36%)" },
+      { name: "Awards", value: stats.awards, color: "hsl(24, 95%, 53%)" },
+      { name: "FDPs", value: stats.fdps, color: "hsl(262, 83%, 58%)" },
+    ].filter(d => d.value > 0);
+  }, [yearlyData]);
 
   const chartConfig = {
     achievements: { label: "Achievements", color: "hsl(217, 91%, 60%)" },
@@ -87,9 +162,9 @@ const HODReports = () => {
         <div className="bg-background border border-border rounded-lg shadow-lg p-3">
           <p className="font-semibold text-sm mb-1">{label}</p>
           <div className="flex items-center gap-2 text-xs">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: payload[0].color }}
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: payload[0].color || payload[0].payload.fill }}
             />
             <span className="text-muted-foreground">
               {payload[0].name}:
@@ -102,6 +177,7 @@ const HODReports = () => {
     return null;
   };
 
+  if (loading) return <div className="text-center py-20">Loading Reports...</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-4 md:p-6 lg:p-8 space-y-6">
@@ -113,7 +189,7 @@ const HODReports = () => {
           </h1>
           <p className="text-muted-foreground mt-2 flex items-center gap-2">
             <Building2 className="h-4 w-4" />
-            {user?.department} - Performance Analytics
+            {user?.department?.name || user?.department} - Performance Analytics
           </p>
         </div>
         <Badge variant="outline" className="px-3 py-1.5">
@@ -142,18 +218,8 @@ const HODReports = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="january">January</SelectItem>
-                  <SelectItem value="february">February</SelectItem>
-                  <SelectItem value="march">March</SelectItem>
-                  <SelectItem value="april">April</SelectItem>
-                  <SelectItem value="may">May</SelectItem>
-                  <SelectItem value="june">June</SelectItem>
-                  <SelectItem value="july">July</SelectItem>
-                  <SelectItem value="august">August</SelectItem>
-                  <SelectItem value="september">September</SelectItem>
-                  <SelectItem value="october">October</SelectItem>
-                  <SelectItem value="november">November</SelectItem>
-                  <SelectItem value="december">December</SelectItem>
+                  {["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+                    .map(m => <SelectItem key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
@@ -161,9 +227,7 @@ const HODReports = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
+                  {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="default" size="sm" className="gap-2">
@@ -176,19 +240,12 @@ const HODReports = () => {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {monthlyStats.map((stat, index) => (
-              <div 
-                key={stat.title} 
+              <div
+                key={stat.title}
                 className="relative group"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <StatCard {...stat} />
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {stat.trend && (
-                    <Badge variant="secondary" className="text-xs">
-                      {stat.trend}
-                    </Badge>
-                  )}
-                </div>
               </div>
             ))}
           </div>
@@ -224,9 +281,7 @@ const HODReports = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
+                  {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Button variant="default" size="sm" className="gap-2">
@@ -239,19 +294,12 @@ const HODReports = () => {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {semesterStats.map((stat, index) => (
-              <div 
-                key={stat.title} 
+              <div
+                key={stat.title}
                 className="relative group"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <StatCard {...stat} />
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {stat.trend && (
-                    <Badge variant="secondary" className="text-xs">
-                      {stat.trend}
-                    </Badge>
-                  )}
-                </div>
               </div>
             ))}
           </div>
@@ -259,35 +307,35 @@ const HODReports = () => {
       </Card>
 
 
-      {/* Performance Analytics */}
+      {/* Performance Analytics (Yearly) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Performing Faculty */}
         <Card className="border-2 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="bg-muted/30">
             <CardTitle className="text-xl flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
-              Top Performing Faculty
+              Top Performing Faculty ({selectedYear})
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Faculty members with highest achievements
+              Faculty members with highest achievements this year
             </p>
           </CardHeader>
           <CardContent className="pt-6">
             <ChartContainer config={chartConfig} className="w-full h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={topFacultyData} layout="vertical">
-                  <CartesianGrid 
-                    strokeDasharray="3 3" 
+                  <CartesianGrid
+                    strokeDasharray="3 3"
                     stroke="hsl(var(--border))"
                     opacity={0.3}
                   />
-                  <XAxis 
+                  <XAxis
                     type="number"
                     allowDecimals={false}
                     tick={{ fontSize: 12 }}
                     stroke="hsl(var(--muted-foreground))"
                   />
-                  <YAxis 
+                  <YAxis
                     type="category"
                     dataKey="name"
                     tick={{ fontSize: 12 }}
@@ -295,9 +343,9 @@ const HODReports = () => {
                     stroke="hsl(var(--muted-foreground))"
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="achievements" 
-                    fill="hsl(217, 91%, 60%)" 
+                  <Bar
+                    dataKey="achievements"
+                    fill="hsl(217, 91%, 60%)"
                     radius={[0, 4, 4, 0]}
                     name="Achievements"
                   />
@@ -313,7 +361,7 @@ const HODReports = () => {
           <CardHeader className="bg-muted/30">
             <CardTitle className="text-xl flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Achievement Distribution
+              Achievement Distribution ({selectedYear})
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Category-wise breakdown of achievements
@@ -322,34 +370,36 @@ const HODReports = () => {
           <CardContent className="pt-6">
             <ChartContainer config={chartConfig} className="w-full h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Pie
-                    data={achievementDistribution}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={4}
-                    stroke="none"
-                  >
-                    {achievementDistribution.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={entry.color}
-                        className="hover:opacity-80 transition-opacity cursor-pointer"
-                      />
-                    ))}
-                  </Pie>
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36}
-                    iconType="circle"
-                    formatter={(value) => <span className="text-xs">{value}</span>}
-                  />
-                </PieChart>
+                {achievementDistribution.length > 0 ? (
+                  <PieChart>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Pie
+                      data={achievementDistribution}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      paddingAngle={4}
+                      stroke="none"
+                    >
+                      {achievementDistribution.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          className="hover:opacity-80 transition-opacity cursor-pointer"
+                        />
+                      ))}
+                    </Pie>
+                    <Legend
+                      verticalAlign="bottom"
+                      height={36}
+                      iconType="circle"
+                      formatter={(value) => <span className="text-xs">{value}</span>}
+                    />
+                  </PieChart>
+                ) : <div className="flex h-full items-center justify-center text-muted-foreground">No data available</div>}
               </ResponsiveContainer>
             </ChartContainer>
           </CardContent>

@@ -13,16 +13,18 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Upload } from "lucide-react";
 
+import api from "@/lib/axios";
+
 const categories = [
-  { value: "publication", label: "Publication" },
-  { value: "patent", label: "Patent" },
-  { value: "award", label: "Award" },
-  { value: "fdp", label: "FDP/Workshop" },
-  { value: "project", label: "Funded Project" },
-  { value: "conference", label: "Conference Presentation" },
+  { value: "Publication", label: "Publication" },
+  { value: "Patent", label: "Patent" },
+  { value: "Award", label: "Award" },
+  { value: "FDP", label: "FDP/Workshop" },
+  { value: "Project", label: "Funded Project" },
+  { value: "Conference", label: "Conference Presentation" },
   { value: "Seminar", label: "Seminar" },
   { value: "STTP", label: "STTP" },
-  { value: "other", label: "Other" },
+  { value: "Other", label: "Other" },
 ];
 
 const AddAchievement = () => {
@@ -50,8 +52,17 @@ const AddAchievement = () => {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const payload = {
+        title: formData.title,
+        category: formData.category,
+        description: formData.description,
+        achievementDate: formData.date,
+        // proof is skipped for now as backend doesn't support it yet
+      };
+
+      await api.post('/faculty/achievement', payload);
+
       toast({
         title: "Achievement Added",
         description: "Your achievement has been submitted successfully",
@@ -63,8 +74,16 @@ const AddAchievement = () => {
         date: "",
         proof: null,
       });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to add achievement",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

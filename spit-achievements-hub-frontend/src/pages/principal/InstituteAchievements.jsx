@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -17,36 +18,59 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
-import { achievements } from "../../data/instituteData";
 
-const capitalize = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+const capitalize = (value) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
 
 const InstituteAchievements = () => {
+  const [achievements, setAchievements] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterDepartment, setFilterDepartment] = useState("all");
 
+  useEffect(() => {
+    const fetchAchievements = async () => {
+      try {
+        const response = await api.get('/principal/achievements');
+        setAchievements(response.data);
+      } catch (error) {
+        console.error("Failed to fetch institute achievements", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAchievements();
+  }, []);
+
   const uniqueDepartments = useMemo(
-    () => [...new Set(achievements.map((a) => a.department))],
-    []
+    () => [...new Set(achievements.map((a) => a.department || 'Unknown'))].filter(Boolean),
+    [achievements]
   );
 
   const uniqueCategories = useMemo(
-    () => [...new Set(achievements.map((a) => a.category))],
-    []
+    () => [...new Set(achievements.map((a) => a.category || 'Unknown'))].filter(Boolean),
+    [achievements]
   );
 
   const filteredAchievements = achievements.filter((achievement) => {
+    const deptName = achievement.department || '';
+    const facultyName = achievement.faculty?.name || achievement.faculty || '';
+
     const matchesSearch =
       achievement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      achievement.faculty.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      achievement.department.toLowerCase().includes(searchTerm.toLowerCase());
+      facultyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      deptName.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesCategory =
       filterCategory === "all" || achievement.category === filterCategory;
     const matchesDepartment =
-      filterDepartment === "all" || achievement.department === filterDepartment;
+      filterDepartment === "all" || deptName === filterDepartment;
+
     return matchesSearch && matchesCategory && matchesDepartment;
   });
+
+  if (loading) return <div>Loading achievements...</div>;
 
   return (
     <div className="space-y-6">
@@ -110,12 +134,12 @@ const InstituteAchievements = () => {
           </TableHeader>
           <TableBody>
             {filteredAchievements.map((achievement) => (
-              <TableRow key={achievement.id}>
+              <TableRow key={achievement._id}>
                 <TableCell>
                   <Badge variant="outline">{achievement.department}</Badge>
                 </TableCell>
                 <TableCell className="font-medium">
-                  {achievement.faculty}
+                  {achievement.faculty?.name || achievement.faculty}
                 </TableCell>
                 <TableCell>{achievement.title}</TableCell>
                 <TableCell>
@@ -124,7 +148,7 @@ const InstituteAchievements = () => {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {new Date(achievement.date).toLocaleDateString()}
+                  {new Date(achievement.achievementDate).toLocaleDateString()}
                 </TableCell>
               </TableRow>
             ))}

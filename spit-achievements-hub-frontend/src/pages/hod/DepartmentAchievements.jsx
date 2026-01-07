@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,63 +20,45 @@ import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
-const mockAchievements = [
-  {
-    id: 1,
-    faculty: "Dr. Sharma",
-    title: "Research Paper on Deep Learning",
-    category: "Publication",
-    date: "2025-12-20",
-  },
-  {
-    id: 2,
-    faculty: "Prof. Patel",
-    title: "Patent for IoT Device",
-    category: "Patent",
-    date: "2025-12-15",
-  },
-  {
-    id: 3,
-    faculty: "Dr. Kumar",
-    title: "Best Paper Award - ICICT 2025",
-    category: "Award",
-    date: "2025-12-10",
-  },
-  {
-    id: 4,
-    faculty: "Dr. Gupta",
-    title: "FDP on Cloud Computing",
-    category: "FDP",
-    date: "2025-12-05",
-  },
-  {
-    id: 5,
-    faculty: "Prof. Singh",
-    title: "Funded Project - AICTE",
-    category: "Project",
-    date: "2025-11-28",
-  },
-];
-
 const DepartmentAchievements = () => {
+  const [achievements, setAchievements] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterFaculty, setFilterFaculty] = useState("all");
   const { user } = useAuth();
 
-  const filteredAchievements = mockAchievements.filter((achievement) => {
+  useEffect(() => {
+    const fetchAchievements = async () => {
+      try {
+        const response = await api.get('/hod/achievements');
+        setAchievements(response.data);
+      } catch (error) {
+        console.error("Failed to fetch department achievements", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAchievements();
+  }, []);
+
+  const filteredAchievements = achievements.filter((achievement) => {
+    const facultyName = achievement.faculty?.name || 'Unknown';
     const matchesSearch =
       achievement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      achievement.faculty.toLowerCase().includes(searchTerm.toLowerCase());
+      facultyName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
       filterCategory === "all" ||
-      achievement.category.toLowerCase() === filterCategory;
+      achievement.category?.toLowerCase() === filterCategory.toLowerCase();
     const matchesFaculty =
-      filterFaculty === "all" || achievement.faculty === filterFaculty;
+      filterFaculty === "all" || facultyName === filterFaculty;
+
     return matchesSearch && matchesCategory && matchesFaculty;
   });
 
-  const uniqueFaculty = [...new Set(mockAchievements.map((a) => a.faculty))];
+  const uniqueFaculty = [...new Set(achievements.map((a) => a.faculty?.name || 'Unknown'))].filter(Boolean);
+
+  if (loading) return <div>Loading achievements...</div>;
 
   return (
     <div className="space-y-6">
@@ -84,7 +67,7 @@ const DepartmentAchievements = () => {
           Department Achievements
         </h1>
         <p className="text-muted-foreground mt-2">
-          {user?.department} - All Faculty Achievements
+          {user?.department?.name || user?.department} - All Faculty Achievements
         </p>
       </div>
 
@@ -137,20 +120,28 @@ const DepartmentAchievements = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAchievements.map((achievement) => (
-              <TableRow key={achievement.id}>
-                <TableCell className="font-medium">
-                  {achievement.faculty}
-                </TableCell>
-                <TableCell>{achievement.title}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{achievement.category}</Badge>
-                </TableCell>
-                <TableCell>
-                  {new Date(achievement.date).toLocaleDateString()}
+            {filteredAchievements.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                  No achievements found matching your criteria.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredAchievements.map((achievement) => (
+                <TableRow key={achievement._id}>
+                  <TableCell className="font-medium">
+                    {achievement.faculty?.name || 'Unknown'}
+                  </TableCell>
+                  <TableCell>{achievement.title}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{achievement.category}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(achievement.achievementDate).toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

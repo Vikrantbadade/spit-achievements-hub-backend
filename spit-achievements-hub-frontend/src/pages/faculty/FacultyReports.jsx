@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -51,58 +52,97 @@ const monthOptions = [
 
 const FacultyReports = () => {
   const [selectedMonth, setSelectedMonth] = useState("december");
-  const [selectedYear, setSelectedYear] = useState("2025");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString()); // Default to current year
   const [selectedSemester, setSelectedSemester] = useState("odd");
   const [activeView, setActiveView] = useState("monthly");
+  const [achievements, setAchievements] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample data - Replace with your actual data
-  const monthlyStats = {
-    publications: 2,
-    patents: 1,
-    awards: 1,
-    fdps: 2,
-    projects: 1,
-    total: 7,
+  // Fetch Achievements
+  useEffect(() => {
+    const fetchAchievements = async () => {
+      try {
+        const { data } = await api.get('/faculty/achievements');
+        setAchievements(data);
+      } catch (error) {
+        console.error("Failed to fetch achievements", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAchievements();
+  }, []);
+
+  // Dynamic Year Options
+  const availableYears = useMemo(() => {
+    const years = [...new Set([
+      new Date().getFullYear().toString(),
+      ...achievements.map(a => new Date(a.achievementDate).getFullYear().toString())
+    ])];
+    return years.sort((a, b) => b - a);
+  }, [achievements]);
+
+  // Filter Logic
+  const getFilteredData = (view, year, month, semester) => {
+    return achievements.filter(ach => {
+      const date = new Date(ach.achievementDate);
+      const achYear = date.getFullYear().toString();
+      if (achYear !== year) return false;
+
+      if (view === "monthly") {
+        const achMonth = date.toLocaleString('default', { month: 'long' }).toLowerCase();
+        return achMonth === month;
+      } else if (view === "semester") {
+        const monthIdx = date.getMonth();
+        // Odd: Jul(6)-Dec(11), Even: Jan(0)-Jun(5)
+        if (semester === "odd") return monthIdx >= 6;
+        return monthIdx <= 5;
+      }
+      return true; // yearly
+    });
   };
 
-  const semesterStats = {
-    publications: 6,
-    patents: 2,
-    awards: 3,
-    fdps: 5,
-    projects: 4,
-    total: 20,
+  // Stats Calculation
+  const calculateStats = (data) => {
+    const stats = {
+      publications: 0, patents: 0, awards: 0, fdps: 0, projects: 0, total: data.length
+    };
+    data.forEach(ach => {
+      const cat = ach.category?.toLowerCase() || '';
+      if (cat.includes("publication")) stats.publications++;
+      else if (cat.includes("patent")) stats.patents++;
+      else if (cat.includes("award")) stats.awards++;
+      else if (cat.includes("fdp") || cat.includes("workshop") || cat.includes("sttp")) stats.fdps++;
+      else if (cat.includes("project")) stats.projects++;
+    });
+    return stats;
   };
 
-  const yearlyStats = {
-    publications: 15,
-    patents: 4,
-    awards: 5,
-    fdps: 8,
-    projects: 6,
-    total: 38,
-  };
+  const monthlyData = getFilteredData('monthly', selectedYear, selectedMonth, selectedSemester);
+  const semesterData = getFilteredData('semester', selectedYear, selectedMonth, selectedSemester);
+  const yearlyData = getFilteredData('yearly', selectedYear, selectedMonth, selectedSemester);
 
-  // Monthly trend data
-  const monthlyTrendData = useMemo(() => {
-    return monthOptions.map((month, idx) => ({
-      month: month.slice(0, 3).toUpperCase(),
-      publications: Math.floor(Math.random() * 5),
-      patents: Math.floor(Math.random() * 3),
-      awards: Math.floor(Math.random() * 2),
-      fdps: Math.floor(Math.random() * 4),
-      projects: Math.floor(Math.random() * 3),
+  const monthlyStats = calculateStats(monthlyData);
+  const semesterStats = calculateStats(semesterData);
+  const yearlyStats = calculateStats(yearlyData);
+
+  // Chart Data Preparation
+  const categoryComparisonData = useMemo(() => {
+    const categories = [
+      { key: 'publications', label: 'Publications', color: "hsl(217, 91%, 60%)" },
+      { key: 'patents', label: 'Patents', color: "hsl(142, 76%, 36%)" },
+      { key: 'awards', label: 'Awards', color: "hsl(24, 95%, 53%)" },
+      { key: 'fdps', label: 'FDPs', color: "hsl(262, 83%, 58%)" },
+      { key: 'projects', label: 'Projects', color: "hsl(346, 77%, 49%)" }
+    ];
+    return categories.map(cat => ({
+      category: cat.label,
+      monthly: monthlyStats[cat.key],
+      semester: semesterStats[cat.key],
+      year: yearlyStats[cat.key],
+      color: cat.color
     }));
-  }, [selectedYear]);
-
-  // Category comparison data
-  const categoryComparisonData = [
-    { category: "Publications", monthly: 2, semester: 6, year: 15, color: "hsl(217, 91%, 60%)" },
-    { category: "Patents", monthly: 1, semester: 2, year: 4, color: "hsl(142, 76%, 36%)" },
-    { category: "Awards", monthly: 1, semester: 3, year: 5, color: "hsl(24, 95%, 53%)" },
-    { category: "FDPs", monthly: 2, semester: 5, year: 8, color: "hsl(262, 83%, 58%)" },
-    { category: "Projects", monthly: 1, semester: 4, year: 6, color: "hsl(346, 77%, 49%)" },
-  ];
+  }, [monthlyStats, semesterStats, yearlyStats]);
 
   const chartConfig = {
     publications: { label: "Publications", color: "hsl(217, 91%, 60%)" },
@@ -112,63 +152,13 @@ const FacultyReports = () => {
     projects: { label: "Projects", color: "hsl(346, 77%, 49%)" },
   };
 
-  const monthCards = [
-    { title: "Total Achievements", value: monthlyStats.total, icon: Trophy },
-    { title: "Publications", value: monthlyStats.publications, icon: BookOpen },
-    { title: "Patents", value: monthlyStats.patents, icon: FileText },
-    { title: "Awards", value: monthlyStats.awards, icon: Award },
-    { title: "FDPs", value: monthlyStats.fdps, icon: Users },
-    { title: "Projects", value: monthlyStats.projects, icon: Briefcase },
-  ];
-
-  const semesterCards = [
-    { title: "Total Achievements", value: semesterStats.total, icon: Trophy },
-    { title: "Publications", value: semesterStats.publications, icon: BookOpen },
-    { title: "Patents", value: semesterStats.patents, icon: FileText },
-    { title: "Awards", value: semesterStats.awards, icon: Award },
-    { title: "FDPs", value: semesterStats.fdps, icon: Users },
-    { title: "Projects", value: semesterStats.projects, icon: Briefcase },
-  ];
-
-  const yearlyCards = [
-    { title: "Total Achievements", value: yearlyStats.total, icon: Trophy },
-    { title: "Publications", value: yearlyStats.publications, icon: BookOpen },
-    { title: "Patents", value: yearlyStats.patents, icon: FileText },
-    { title: "Awards", value: yearlyStats.awards, icon: Award },
-    { title: "FDPs", value: yearlyStats.fdps, icon: Users },
-    { title: "Projects", value: yearlyStats.projects, icon: Briefcase },
-  ];
-
-  // Recent achievements
-  const recentAchievements = [
-    {
-      id: 1,
-      title: "Published research paper in IEEE Conference",
-      category: "publication",
-      date: "2025-12-15",
-      status: "Verified",
-    },
-    {
-      id: 2,
-      title: "Patent filed for AI-based diagnostic system",
-      category: "patent",
-      date: "2025-12-10",
-      status: "Pending",
-    },
-    {
-      id: 3,
-      title: "Best Faculty Award at Annual Conference",
-      category: "award",
-      date: "2025-12-05",
-      status: "Verified",
-    },
-    {
-      id: 4,
-      title: "Completed FDP on Machine Learning",
-      category: "fdp",
-      date: "2025-11-28",
-      status: "Verified",
-    },
+  const getCards = (stats) => [
+    { title: "Total Achievements", value: stats.total, icon: Trophy },
+    { title: "Publications", value: stats.publications, icon: BookOpen },
+    { title: "Patents", value: stats.patents, icon: FileText },
+    { title: "Awards", value: stats.awards, icon: Award },
+    { title: "FDPs", value: stats.fdps, icon: Users },
+    { title: "Projects", value: stats.projects, icon: Briefcase },
   ];
 
   const handleExportPDF = () => {
@@ -177,7 +167,6 @@ const FacultyReports = () => {
     const isSemester = activeView === "semester";
 
     let stats, period;
-
     if (isMonthly) {
       stats = monthlyStats;
       period = `${selectedMonth.charAt(0).toUpperCase() + selectedMonth.slice(1)} ${selectedYear}`;
@@ -201,14 +190,17 @@ const FacultyReports = () => {
     doc.setFont("helvetica", "bold");
     doc.text("1. General Information", 20, 40);
 
+    // User info from local storage or context if available
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+
     doc.setFont("helvetica", "normal");
     const infoStartY = 50;
     const lineHeight = 7;
 
     doc.text(`• Name of Institution: SPIT`, 25, infoStartY);
-    doc.text(`• Name of Department: Computer Engineering`, 25, infoStartY + lineHeight);
+    doc.text(`• Name of Department: ${userInfo.department?.name || 'Computer Engineering'}`, 25, infoStartY + lineHeight);
     doc.text(`• Academic Year: ${selectedYear}`, 25, infoStartY + lineHeight * 2);
-    doc.text(`• Name of Faculty: Mayur Solankar`, 25, infoStartY + lineHeight * 3);
+    doc.text(`• Name of Faculty: ${userInfo.name || 'Faculty Member'}`, 25, infoStartY + lineHeight * 3);
 
     // 2. Summary
     doc.setFont("helvetica", "bold");
@@ -241,9 +233,9 @@ const FacultyReports = () => {
     });
 
     const filenameMap = {
-      monthly: `Achievement_Report_${selectedMonth}_${selectedYear}.pdf`,
-      semester: `Achievement_Report_${selectedSemester}_${selectedYear}.pdf`,
-      yearly: `Achievement_Report_Annual_${selectedYear}.pdf`
+      monthly: `My_Report_${selectedMonth}_${selectedYear}.pdf`,
+      semester: `My_Report_${selectedSemester}_${selectedYear}.pdf`,
+      yearly: `My_Report_Annual_${selectedYear}.pdf`
     };
 
     doc.save(filenameMap[activeView]);
@@ -271,23 +263,21 @@ const FacultyReports = () => {
   };
 
   const getCategoryIcon = (category) => {
-    switch (category) {
-      case "publication": return <BookOpen className="h-4 w-4" />;
-      case "patent": return <FileText className="h-4 w-4" />;
-      case "award": return <Award className="h-4 w-4" />;
-      case "fdp": return <Users className="h-4 w-4" />;
-      default: return <Trophy className="h-4 w-4" />;
-    }
+    const cat = category.toLowerCase();
+    if (cat.includes("publication")) return <BookOpen className="h-4 w-4" />;
+    if (cat.includes("patent")) return <FileText className="h-4 w-4" />;
+    if (cat.includes("award")) return <Award className="h-4 w-4" />;
+    if (cat.includes("fdp")) return <Users className="h-4 w-4" />;
+    return <Trophy className="h-4 w-4" />;
   };
 
   const getCategoryColor = (category) => {
-    switch (category) {
-      case "publication": return "text-blue-500 bg-blue-50 dark:bg-blue-950";
-      case "patent": return "text-green-500 bg-green-50 dark:bg-green-950";
-      case "award": return "text-orange-500 bg-orange-50 dark:bg-orange-950";
-      case "fdp": return "text-purple-500 bg-purple-50 dark:bg-purple-950";
-      default: return "text-gray-500 bg-gray-50 dark:bg-gray-950";
-    }
+    const cat = category.toLowerCase();
+    if (cat.includes("publication")) return "text-blue-500 bg-blue-50 dark:bg-blue-950";
+    if (cat.includes("patent")) return "text-green-500 bg-green-50 dark:bg-green-950";
+    if (cat.includes("award")) return "text-orange-500 bg-orange-50 dark:bg-orange-950";
+    if (cat.includes("fdp")) return "text-purple-500 bg-purple-50 dark:bg-purple-950";
+    return "text-gray-500 bg-gray-50 dark:bg-gray-950";
   };
 
   return (
@@ -315,297 +305,139 @@ const FacultyReports = () => {
         </div>
       </div>
 
-      {/* Tabs for Monthly/Semester View */}
-      <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
-          <TabsTrigger value="semester">Semester Report</TabsTrigger>
-          <TabsTrigger value="yearly">Yearly Report</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <div className="text-center py-20">Loading Reports...</div>
+      ) : (
+        <>
+          {/* Tabs */}
+          <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-3">
+              <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
+              <TabsTrigger value="semester">Semester Report</TabsTrigger>
+              <TabsTrigger value="yearly">Yearly Report</TabsTrigger>
+            </TabsList>
 
-        {/* Monthly Report Tab */}
-        <TabsContent value="monthly" className="space-y-6 mt-6">
-          <Card className="border-2 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <CardTitle className="text-2xl flex items-center gap-2">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    Monthly Performance Report
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Your achievements for the selected month
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {monthOptions.map((month) => (
-                        <SelectItem key={month} value={month}>
-                          {month.charAt(0).toUpperCase() + month.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2025">2025</SelectItem>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2023">2023</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="default" size="sm" className="gap-2" onClick={handleExportPDF}>
-                    <Download className="h-4 w-4" />
-                    Export PDF
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {monthCards.map((stat) => (
-                  <div key={stat.title} className="relative group">
-                    <StatCard {...stat} />
+            <div className="mt-6">
+              <Card className="border-2 shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <CardTitle className="text-2xl flex items-center gap-2">
+                        <TrendingUp className="h-6 w-6 text-primary" />
+                        {activeView.charAt(0).toUpperCase() + activeView.slice(1)} Performance Report
+                      </CardTitle>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {activeView === 'monthly' && (
+                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {monthOptions.map((m) => (
+                              <SelectItem key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {activeView === 'semester' && (
+                        <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="odd">Odd Semester (Jul-Dec)</SelectItem>
+                            <SelectItem value="even">Even Semester (Jan-Jun)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <Select value={selectedYear} onValueChange={setSelectedYear}>
+                        <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+
+                      <Button variant="default" size="sm" className="gap-2" onClick={handleExportPDF}>
+                        <Download className="h-4 w-4" />
+                        Export PDF
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Semester Report Tab */}
-        <TabsContent value="semester" className="space-y-6 mt-6">
-          <Card className="border-2 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <CardTitle className="text-2xl flex items-center gap-2">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    Semester Performance Report
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Comprehensive overview of your semester achievements
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="odd">Odd Semester (Jul-Dec)</SelectItem>
-                      <SelectItem value="even">Even Semester (Jan-Jun)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2025">2025</SelectItem>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2023">2023</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="default" size="sm" className="gap-2" onClick={handleExportPDF}>
-                    <Download className="h-4 w-4" />
-                    Export Excel
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {semesterCards.map((stat) => (
-                  <div key={stat.title} className="relative group">
-                    <StatCard {...stat} />
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {getCards(activeView === 'monthly' ? monthlyStats : activeView === 'semester' ? semesterStats : yearlyStats).map((stat) => (
+                      <div key={stat.title} className="relative group">
+                        <StatCard {...stat} />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                </CardContent>
+              </Card>
+            </div>
+          </Tabs>
 
-        {/* Yearly Report Tab */}
-        <TabsContent value="yearly" className="space-y-6 mt-6">
-          <Card className="border-2 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <CardTitle className="text-2xl flex items-center gap-2">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    Annual Performance Report
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Summary of your achievements for the entire year
-                  </p>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2025">2025</SelectItem>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2023">2023</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="default" size="sm" className="gap-2" onClick={handleExportPDF}>
-                    <Download className="h-4 w-4" />
-                    Export PDF
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {yearlyCards.map((stat) => (
-                  <div key={stat.title} className="relative group">
-                    <StatCard {...stat} />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Analytics & Visualizations */}
-      <Card className="border-2 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-        <CardHeader className="bg-muted/30">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
+          {/* Analytics */}
+          <Card className="border-2 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+            <CardHeader className="bg-muted/30">
               <CardTitle className="text-2xl flex items-center gap-2">
                 <BarChart3 className="h-6 w-6 text-primary" />
                 Performance Analytics
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Visual breakdown of your achievements over time
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-
-            {/* Category Comparison Chart */}
-            <Card className="border shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-sm font-semibold text-muted-foreground">
-                  Monthly vs Semester Comparison
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={chartConfig} className="w-full h-[280px]">
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="h-[300px] w-full">
+                <ChartContainer config={chartConfig} className="w-full h-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={categoryComparisonData}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="hsl(var(--border))"
-                        opacity={0.3}
-                      />
-                      <XAxis
-                        dataKey="category"
-                        tick={{ fontSize: 11 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
-                      <YAxis
-                        allowDecimals={false}
-                        tick={{ fontSize: 11 }}
-                        stroke="hsl(var(--muted-foreground))"
-                      />
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis dataKey="category" tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend
-                        iconType="circle"
-                        formatter={(value) => <span className="text-xs capitalize">{value}</span>}
-                      />
-                      <Bar
-                        dataKey="monthly"
-                        fill="hsl(217, 91%, 60%)"
-                        radius={[4, 4, 0, 0]}
-                        name="Monthly"
-                      />
-                      <Bar
-                        dataKey="semester"
-                        fill="hsl(142, 76%, 36%)"
-                        radius={[4, 4, 0, 0]}
-                        name="Semester"
-                      />
+                      <Legend />
+                      <Bar dataKey="monthly" fill="hsl(217, 91%, 60%)" name="Monthly" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="semester" fill="hsl(142, 76%, 36%)" name="Semester" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Recent Achievements */}
-      <Card className="border-2 shadow-sm hover:shadow-md transition-shadow">
-        <CardHeader className="bg-muted/30">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
+          {/* Recent Achievements */}
+          <Card className="border-2 shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="bg-muted/30">
               <CardTitle className="text-2xl flex items-center gap-2">
                 <Trophy className="h-6 w-6 text-primary" />
                 Recent Achievements
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Your latest academic contributions and accomplishments
-              </p>
-            </div>
-            <Button variant="outline" size="sm">
-              View All
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-border">
-            {recentAchievements.map((achievement) => (
-              <div
-                key={achievement.id}
-                className="p-6 hover:bg-muted/30 transition-colors group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-lg ${getCategoryColor(achievement.category)}`}>
-                    {getCategoryIcon(achievement.category)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                          {achievement.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(achievement.date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border">
+                {achievements.slice(0, 5).map((achievement) => (
+                  <div key={achievement._id} className="p-6 hover:bg-muted/30 transition-colors group">
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-lg ${getCategoryColor(achievement.category)}`}>
+                        {getCategoryIcon(achievement.category)}
                       </div>
-                      <Badge
-                        variant={achievement.status === "Verified" ? "default" : "secondary"}
-                        className="shrink-0"
-                      >
-                        {achievement.status}
-                      </Badge>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="font-semibold text-foreground">{achievement.title}</h3>
+                            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(achievement.achievementDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Badge variant="secondary">Saved</Badge>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
+                {achievements.length === 0 && <div className="p-6 text-center text-muted-foreground">No achievements found.</div>}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 };
