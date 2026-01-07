@@ -1,3 +1,6 @@
+// TITLE: Super Admin Controller
+// Manages Admin capabilities including User Management, Dashboard Stats, and System Logs.
+// UPDATED: Now returns password hashes to frontend for verification.
 const User = require('../models/User');
 const Department = require('../models/Department');
 const AuditLog = require('../models/AuditLog');
@@ -13,7 +16,6 @@ exports.getAllUsers = async (req, res) => {
         if (department) query.department = department;
 
         const users = await User.find(query)
-            .select('-password')
             .populate('department', 'name code');
 
         res.json(users);

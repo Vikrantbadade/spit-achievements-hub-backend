@@ -1,3 +1,6 @@
+// TITLE: User Model with Secure and Plain Password Storage
+// This model defines the user schema including roles, departments, and password handling.
+// NOTE: 'plainPassword' is included for Admin visibility as per user requirements (Insecure by design).
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -13,16 +16,19 @@ const userSchema = new mongoose.Schema({
   department: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Department',
-
     required: function () { return this.role !== 'Principal' && this.role !== 'Admin'; }
-  }
+  },
+  plainPassword: { type: String } // INSECURE: Storing plain text password for Admin view
 });
 
 userSchema.pre('save', async function () {
-  // 1. If password is not modified, return early (Mongoose handles the rest)
+  // 1. If password is not modified, return early
   if (!this.isModified('password')) return;
 
-  // 2. Hash the password
+  // 2. Capture plain password for Admin visibility before hashing
+  this.plainPassword = this.password;
+
+  // 3. Hash the password
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 

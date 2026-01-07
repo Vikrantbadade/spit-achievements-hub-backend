@@ -1,3 +1,5 @@
+// TITLE: Authentication Routes
+// Handles user signin, including populating department details for verification.
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
@@ -7,10 +9,10 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 router.post('/signin', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).populate('department');
     if (user && (await user.matchPassword(password))) {
       const token = jwt.sign(
-        { userId: user._id, role: user.role, deptId: user.department },
+        { userId: user._id, role: user.role, deptId: user.department?._id },
         process.env.JWT_SECRET,
         { expiresIn: '30d' }
       );
@@ -20,7 +22,19 @@ router.post('/signin', async (req, res) => {
       else if (user.role === 'HOD') redirectPath = '/hod';
       else if (user.role === 'Principal') redirectPath = '/principal';
 
-      res.json({ token, role: user.role, redirectPath, user: { name: user.name, email: user.email } });
+      res.json({
+        token,
+        role: user.role,
+        redirectPath,
+        user: {
+          name: user.name,
+          email: user.email,
+          department: user.department ? {
+            name: user.department.name,
+            code: user.department.code
+          } : null
+        }
+      });
     } else {
       res.status(401).json({ message: 'Invalid Credentials' });
     }
@@ -31,13 +45,13 @@ router.post('/signin', async (req, res) => {
 
 
 // POST /api/v1/auth/create-user
-router.post('/create-user', protect, authorize('Principal', 'HOD'), async (req, res,next) => {
+router.post('/create-user', protect, authorize('Principal', 'HOD'), async (req, res, next) => {
   try {
     const { name, email, password, role, department } = req.body;
 
-    
+
     if (req.user.role === 'HOD') {
-      
+
       if (role !== 'Faculty') {
         return res.status(403).json({ message: 'HOD can only create Faculty accounts.' });
       }
@@ -52,18 +66,18 @@ router.post('/create-user', protect, authorize('Principal', 'HOD'), async (req, 
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    
+
     const user = await User.create({
       name,
       email,
-      password, 
+      password,
       role,
       department
     });
 
-    res.status(201).json({ 
-      message: 'User created successfully', 
-      user: { id: user._id, name: user.name, email: user.email, role: user.role } 
+    res.status(201).json({
+      message: 'User created successfully',
+      user: { id: user._id, name: user.name, email: user.email, role: user.role }
     });
 
   } catch (error) {
