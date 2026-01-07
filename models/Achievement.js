@@ -4,11 +4,11 @@ const achievementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
   // e.g., "Publication", "FDP", "Patent", "Award"
-  category: { 
-    type: String, 
-    enum: ['Publication', 'FDP', 'Patent', 'Award', 'Certification', 'Other'],
-    required: true 
-  }, 
+  category: {
+    type: String,
+    enum: ['Publication', 'FDP', 'Patent', 'Award', 'Certification', 'Seminar', 'STTP', 'Other'],
+    required: true
+  },
   achievementDate: { type: Date, required: true },
   faculty: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', required: true }
