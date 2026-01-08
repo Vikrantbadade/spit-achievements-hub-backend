@@ -37,6 +37,7 @@ import {
   Legend,
 } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
+import { generateReportPDF } from "@/utils/pdfGenerator";
 
 const HODReports = () => {
   const [selectedMonth, setSelectedMonth] = useState("december");
@@ -98,21 +99,73 @@ const HODReports = () => {
   const monthlyData = getFilteredData('monthly');
   const semesterData = getFilteredData('semester');
 
-  // Stats Calculation
-  const calculateStats = (data, totalFaculty) => {
-    const stats = { publications: 0, patents: 0, awards: 0, fdps: 0 };
+  const getStatsObject = (data) => {
+    const stats = { publications: 0, patents: 0, awards: 0, fdps: 0, fdpsAttended: 0, fdpsOrganised: 0, workshops: 0, projects: 0 };
     data.forEach(ach => {
       const cat = ach.category?.toLowerCase() || '';
+      const sub = ach.subCategory?.toLowerCase() || '';
       if (cat.includes("publication")) stats.publications++;
       else if (cat.includes("patent")) stats.patents++;
       else if (cat.includes("award")) stats.awards++;
-      else if (cat.includes("fdp") || cat.includes("workshop")) stats.fdps++;
+      else if (cat.includes("fdp")) {
+        stats.fdps++;
+        if (sub.includes("organised")) stats.fdpsOrganised++;
+        else stats.fdpsAttended++;
+      }
+      else if (cat.includes("workshop")) stats.workshops++;
+      else if (cat.includes("project")) stats.projects++;
+    });
+    return stats;
+  };
+
+  const handleExportPDF = (type) => {
+    let reportData, period;
+    if (type === 'monthly') {
+      reportData = monthlyData;
+      period = `${selectedMonth.charAt(0).toUpperCase() + selectedMonth.slice(1)} ${selectedYear}`;
+    } else {
+      reportData = semesterData;
+      period = `${selectedSemester.charAt(0).toUpperCase() + selectedSemester.slice(1)} Semester ${selectedYear}`;
+    }
+
+    const stats = getStatsObject(reportData);
+
+    generateReportPDF(reportData, {
+      title: "DEPARTMENT ACHIEVEMENT REPORT",
+      period,
+      userInfo: {
+        name: "Head of Department",
+        department: user?.department?.name || user?.department || "Department"
+      },
+      stats
+    });
+  };
+
+  // Stats Calculation
+  const calculateStats = (data, totalFaculty) => {
+    const stats = { publications: 0, patents: 0, awards: 0, fdps: 0, fdpsAttended: 0, fdpsOrganised: 0, workshops: 0, projects: 0 };
+    data.forEach(ach => {
+      const cat = ach.category?.toLowerCase() || '';
+      const sub = ach.subCategory?.toLowerCase() || '';
+
+      if (cat.includes("publication")) stats.publications++;
+      else if (cat.includes("patent")) stats.patents++;
+      else if (cat.includes("award")) stats.awards++;
+      else if (cat.includes("fdp")) {
+        stats.fdps++;
+        if (sub.includes("organised")) stats.fdpsOrganised++;
+        else stats.fdpsAttended++;
+      }
+      else if (cat.includes("workshop")) stats.workshops++;
+      else if (cat.includes("project")) stats.projects++;
     });
     return [
-      { title: "Faculty Active", value: totalFaculty, icon: Users }, // This is static/total for now
+      { title: "Faculty Active", value: totalFaculty, icon: Users },
       { title: "Publications", value: stats.publications, icon: BookOpen },
       { title: "Patents", value: stats.patents, icon: FileText },
       { title: "Awards", value: stats.awards, icon: Trophy },
+      { title: "FDPs", value: stats.fdps, icon: Users },
+      { title: "Projects", value: stats.projects, icon: Building2 }, // Building2/Briefcase
     ];
   };
 
@@ -230,7 +283,7 @@ const HODReports = () => {
                   {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button variant="default" size="sm" className="gap-2">
+              <Button variant="default" size="sm" className="gap-2" onClick={() => handleExportPDF('monthly')}>
                 <Download className="h-4 w-4" />
                 Export PDF
               </Button>
@@ -284,9 +337,9 @@ const HODReports = () => {
                   {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button variant="default" size="sm" className="gap-2">
+              <Button variant="default" size="sm" className="gap-2" onClick={() => handleExportPDF('semester')}>
                 <Download className="h-4 w-4" />
-                Export Excel
+                Export PDF
               </Button>
             </div>
           </div>

@@ -113,6 +113,7 @@ const MyAchievements = () => {
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Proof</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -130,6 +131,20 @@ const MyAchievements = () => {
                   <TableCell>{achievement.category}</TableCell>
                   <TableCell>
                     {new Date(achievement.achievementDate).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {achievement.proof ? (
+                      <a
+                        href={`http://localhost:5000/${achievement.proof.replace(/\\/g, '/')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="h-3 w-3" /> View
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">N/A</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

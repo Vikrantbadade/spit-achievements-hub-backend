@@ -8,9 +8,9 @@ router.use(protect, authorize('Faculty'));
 router.delete('/achievement/:id', async (req, res) => {
   try {
     // 1. Find the achievement by ID *AND* ensure it belongs to the logged-in faculty
-    const achievement = await Achievement.findOneAndDelete({ 
-      _id: req.params.id, 
-      faculty: req.user._id 
+    const achievement = await Achievement.findOneAndDelete({
+      _id: req.params.id,
+      faculty: req.user._id
     });
 
     // 2. If no achievement found (or it belongs to someone else)
@@ -25,13 +25,23 @@ router.delete('/achievement/:id', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-router.post('/achievement', async (req, res) => {
+const upload = require('../middleware/upload');
+
+// ... (keep delete route as is)
+
+router.post('/achievement', upload.single('proof'), async (req, res) => {
   try {
-    const achievement = await Achievement.create({
+    const achievementData = {
       ...req.body,
       faculty: req.user._id,
       department: req.user.department
-    });
+    };
+
+    if (req.file) {
+      achievementData.proof = req.file.path;
+    }
+
+    const achievement = await Achievement.create(achievementData);
     res.status(201).json(achievement);
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
@@ -43,10 +53,16 @@ router.get('/achievements', async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
-router.put('/achievement/:id', async (req, res) => {
+router.put('/achievement/:id', upload.single('proof'), async (req, res) => {
   try {
-    const achievement = await Achievement.findOneAndUpdate({ _id: req.params.id, faculty: req.user._id }, req.body, { new: true });
-    if(!achievement) return res.status(404).json({ message: 'Not found' });
+    const updateData = { ...req.body };
+
+    if (req.file) {
+      updateData.proof = req.file.path;
+    }
+
+    const achievement = await Achievement.findOneAndUpdate({ _id: req.params.id, faculty: req.user._id }, updateData, { new: true });
+    if (!achievement) return res.status(404).json({ message: 'Not found' });
     res.json(achievement);
   } catch (error) { res.status(500).json({ message: error.message }); }
 });

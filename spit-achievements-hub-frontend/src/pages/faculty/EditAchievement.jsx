@@ -12,18 +12,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Upload } from "lucide-react";
 
 const categories = [
   { value: "Publication", label: "Publication" },
   { value: "Patent", label: "Patent" },
   { value: "Award", label: "Award" },
-  { value: "FDP", label: "FDP/Workshop" },
+  { value: "FDP", label: "FDP" },
   { value: "Project", label: "Funded Project" },
-  { value: "Conference", label: "Conference Presentation" },
+  { value: "Organised Conference", label: "Organised Conference" },
   { value: "Seminar", label: "Seminar" },
-  { value: "STTP", label: "STTP" },
+  { value: "Workshop", label: "Workshop" },
   { value: "Other", label: "Other" },
 ];
+
+const subCategories = {
+  Publication: ["UGC Recognised Journal", "Conference Paper"],
+  FDP: ["Attended", "Organised"],
+};
 
 const EditAchievement = ({ achievement, onClose }) => {
   const { toast } = useToast();
@@ -31,8 +37,14 @@ const EditAchievement = ({ achievement, onClose }) => {
   const [formData, setFormData] = useState({
     title: "",
     category: "",
+    subCategory: "",
     description: "",
     date: "",
+    startDate: "",
+    endDate: "",
+    duration: "",
+    fundedBy: "",
+    grantAmount: "",
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -40,13 +52,21 @@ const EditAchievement = ({ achievement, onClose }) => {
   useEffect(() => {
     if (achievement) {
       setFormData({
-        title: achievement.title,
-        category: achievement.category,
-        description: achievement.description,
+        title: achievement.title || "",
+        category: achievement.category || "",
+        subCategory: achievement.subCategory || "",
+        description: achievement.description || "",
         date: achievement.achievementDate ? new Date(achievement.achievementDate).toISOString().split('T')[0] : "",
+        startDate: achievement.startDate ? new Date(achievement.startDate).toISOString().split('T')[0] : "",
+        endDate: achievement.endDate ? new Date(achievement.endDate).toISOString().split('T')[0] : "",
+        duration: achievement.duration || "",
+        fundedBy: achievement.fundedBy || "",
+        grantAmount: achievement.grantAmount || "",
       });
     }
   }, [achievement]);
+
+  const [proofFile, setProofFile] = useState(null);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -63,15 +83,27 @@ const EditAchievement = ({ achievement, onClose }) => {
     setIsLoading(true);
 
     try {
-      const payload = {
-        title: formData.title,
-        category: formData.category,
-        description: formData.description,
-        achievementDate: formData.date
-      };
+      const payload = new FormData();
+      payload.append('title', formData.title);
+      payload.append('category', formData.category);
+      if (formData.subCategory) payload.append('subCategory', formData.subCategory);
+      payload.append('description', formData.description);
+      payload.append('achievementDate', formData.date);
+
+      if (formData.startDate) payload.append('startDate', formData.startDate);
+      if (formData.endDate) payload.append('endDate', formData.endDate);
+      if (formData.duration) payload.append('duration', formData.duration);
+      if (formData.fundedBy) payload.append('fundedBy', formData.fundedBy);
+      if (formData.grantAmount) payload.append('grantAmount', formData.grantAmount);
+
+      if (proofFile) {
+        payload.append('proof', proofFile);
+      }
 
       if (achievement._id) {
-        await api.put(`/faculty/achievement/${achievement._id}`, payload);
+        await api.put(`/faculty/achievement/${achievement._id}`, payload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
       }
 
       toast({
@@ -80,16 +112,6 @@ const EditAchievement = ({ achievement, onClose }) => {
       });
 
       if (onClose) onClose();
-      // Ideally we should trigger a content refresh in parent.
-      // MyAchievements listens to nothing?
-      // Ah, onClose in MyAchievements currently just closes modal.
-      // I need to trigger refresh.
-      // But `MyAchievements` fetches on mount.
-      // I should pass a "onSuccess" callback or just refresh page?
-      // Or `MyAchievements` re-fetches when edit closes?
-      // I'll reload window for simplicity or assume user will refresh.
-      // Actually I can call `window.location.reload()` here, or pass a callback.
-      // Let's rely on reload for now or parent passing refresh.
       window.location.reload();
 
     } catch (error) {
@@ -104,27 +126,56 @@ const EditAchievement = ({ achievement, onClose }) => {
     }
   };
 
+  const hasSubCategories = subCategories[formData.category];
+  const isOrganisedFDP = formData.category === 'FDP' && formData.subCategory === 'Organised';
+  const isWorkshop = formData.category === 'Workshop';
+
   return (
     <form onSubmit={handleSave} className="space-y-5">
-      <div className="space-y-2">
-        <Label>Category *</Label>
-        <Select
-          value={formData.category}
-          onValueChange={(value) =>
-            setFormData({ ...formData, category: value })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Category *</Label>
+          <Select
+            value={formData.category}
+            onValueChange={(value) =>
+              setFormData({ ...formData, category: value, subCategory: "" })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {hasSubCategories && (
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <Select
+              value={formData.subCategory}
+              onValueChange={(value) =>
+                setFormData({ ...formData, subCategory: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {hasSubCategories.map((sub) => (
+                  <SelectItem key={sub} value={sub}>
+                    {sub}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -148,6 +199,37 @@ const EditAchievement = ({ achievement, onClose }) => {
         />
       </div>
 
+      {/* Conditional Fields */}
+      {(isOrganisedFDP || isWorkshop) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-lg">
+          <div className="space-y-2">
+            <Label>Start Date</Label>
+            <Input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>End Date</Label>
+            <Input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Duration (e.g. 5 days)</Label>
+            <Input placeholder="e.g. 1 week" value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} />
+          </div>
+        </div>
+      )}
+
+      {isOrganisedFDP && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-lg mt-0">
+          <div className="space-y-2">
+            <Label>Funded By</Label>
+            <Input placeholder="Funding Agency" value={formData.fundedBy} onChange={(e) => setFormData({ ...formData, fundedBy: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Grant Amount (₹)</Label>
+            <Input type="number" placeholder="0" value={formData.grantAmount} onChange={(e) => setFormData({ ...formData, grantAmount: e.target.value })} />
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label>Date *</Label>
         <Input
@@ -157,6 +239,26 @@ const EditAchievement = ({ achievement, onClose }) => {
             setFormData({ ...formData, date: e.target.value })
           }
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Update Proof (Optional)</Label>
+        <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors cursor-pointer relative">
+          <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
+          <p className="text-sm text-muted-foreground">
+            {proofFile ? proofFile.name : "Click to upload new proof"}
+          </p>
+          <input
+            type="file"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                setProofFile(e.target.files[0]);
+              }
+            }}
+          />
+        </div>
       </div>
 
       {/* 🔘 Action Buttons */}

@@ -130,6 +130,7 @@ const InstituteAchievements = () => {
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Proof</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -149,6 +150,20 @@ const InstituteAchievements = () => {
                 </TableCell>
                 <TableCell>
                   {new Date(achievement.achievementDate).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  {achievement.proof ? (
+                    <a
+                      href={`http://localhost:5000/${achievement.proof.replace(/\\/g, '/')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline text-sm"
+                    >
+                      View
+                    </a>
+                  ) : (
+                    "-"
+                  )}
                 </TableCell>
               </TableRow>
             ))}

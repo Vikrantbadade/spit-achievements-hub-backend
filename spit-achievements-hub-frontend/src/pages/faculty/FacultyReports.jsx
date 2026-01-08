@@ -42,8 +42,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateReportPDF } from "@/utils/pdfGenerator";
 
 const monthOptions = [
   "january", "february", "march", "april", "may", "june",
@@ -105,14 +104,21 @@ const FacultyReports = () => {
   // Stats Calculation
   const calculateStats = (data) => {
     const stats = {
-      publications: 0, patents: 0, awards: 0, fdps: 0, projects: 0, total: data.length
+      publications: 0, patents: 0, awards: 0, fdps: 0, fdpsAttended: 0, fdpsOrganised: 0, workshops: 0, projects: 0, total: data.length
     };
     data.forEach(ach => {
       const cat = ach.category?.toLowerCase() || '';
+      const sub = ach.subCategory?.toLowerCase() || '';
+
       if (cat.includes("publication")) stats.publications++;
       else if (cat.includes("patent")) stats.patents++;
       else if (cat.includes("award")) stats.awards++;
-      else if (cat.includes("fdp") || cat.includes("workshop") || cat.includes("sttp")) stats.fdps++;
+      else if (cat.includes("fdp")) {
+        stats.fdps++;
+        if (sub.includes("organised")) stats.fdpsOrganised++;
+        else stats.fdpsAttended++;
+      }
+      else if (cat.includes("workshop")) stats.workshops++;
       else if (cat.includes("project")) stats.projects++;
     });
     return stats;
@@ -162,83 +168,35 @@ const FacultyReports = () => {
   ];
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
     const isMonthly = activeView === "monthly";
     const isSemester = activeView === "semester";
 
-    let stats, period;
+    let currentStats, reportData, period;
     if (isMonthly) {
-      stats = monthlyStats;
+      currentStats = monthlyStats;
+      reportData = monthlyData;
       period = `${selectedMonth.charAt(0).toUpperCase() + selectedMonth.slice(1)} ${selectedYear}`;
     } else if (isSemester) {
-      stats = semesterStats;
+      currentStats = semesterStats;
+      reportData = semesterData;
       period = `${selectedSemester.charAt(0).toUpperCase() + selectedSemester.slice(1)} Semester ${selectedYear}`;
     } else {
-      stats = yearlyStats;
+      currentStats = yearlyStats;
+      reportData = yearlyData;
       period = `Annual Report ${selectedYear}`;
     }
 
-    // Title
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("DEPARTMENTAL FACULTY ACHIEVEMENT REPORT", 20, 20);
-    doc.setFontSize(12);
-    doc.text(`(Period: ${period})`, 20, 28);
-
-    // 1. General Information
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("1. General Information", 20, 40);
-
-    // User info from local storage or context if available
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
 
-    doc.setFont("helvetica", "normal");
-    const infoStartY = 50;
-    const lineHeight = 7;
-
-    doc.text(`• Name of Institution: SPIT`, 25, infoStartY);
-    doc.text(`• Name of Department: ${userInfo.department?.name || 'Computer Engineering'}`, 25, infoStartY + lineHeight);
-    doc.text(`• Academic Year: ${selectedYear}`, 25, infoStartY + lineHeight * 2);
-    doc.text(`• Name of Faculty: ${userInfo.name || 'Faculty Member'}`, 25, infoStartY + lineHeight * 3);
-
-    // 2. Summary
-    doc.setFont("helvetica", "bold");
-    doc.text("2. Summary of Achievements (At a Glance)", 20, infoStartY + lineHeight * 5);
-
-    const tableData = [
-      ["1", "Research Publications", stats.publications],
-      ["2", "Books / Book Chapters", "0"],
-      ["3", "Conferences / Seminars Attended", "0"],
-      ["4", "FDP / Workshops", stats.fdps],
-      ["5", "Awards / Recognitions", stats.awards],
-      ["6", "Research Projects / Grants", stats.projects],
-      ["7", "Patents (Published/Granted)", stats.patents],
-      ["8", "Consultancy / MoUs", "0"],
-      ["9", "Resource Person / Invited Talks", "0"],
-    ];
-
-    autoTable(doc, {
-      startY: infoStartY + lineHeight * 6,
-      head: [["Sl. No.", "Achievement Category", "Number"]],
-      body: tableData,
-      theme: 'plain',
-      headStyles: { fontStyle: 'bold' },
-      styles: { cellPadding: 2 },
-      columnStyles: {
-        0: { cellWidth: 20 },
-        1: { cellWidth: 100 },
-        2: { cellWidth: 30 }
-      }
+    generateReportPDF(reportData, {
+      title: "DEPARTMENTAL FACULTY ACHIEVEMENT REPORT",
+      period,
+      userInfo: {
+        name: userInfo.name,
+        department: userInfo.department?.name || 'Computer Engineering'
+      },
+      stats: currentStats
     });
-
-    const filenameMap = {
-      monthly: `My_Report_${selectedMonth}_${selectedYear}.pdf`,
-      semester: `My_Report_${selectedSemester}_${selectedYear}.pdf`,
-      yearly: `My_Report_Annual_${selectedYear}.pdf`
-    };
-
-    doc.save(filenameMap[activeView]);
   };
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -426,7 +384,19 @@ const FacultyReports = () => {
                               {new Date(achievement.achievementDate).toLocaleDateString()}
                             </p>
                           </div>
-                          <Badge variant="secondary">Saved</Badge>
+                          <div className="flex items-center gap-3">
+                            {achievement.proof && (
+                              <a
+                                href={`http://localhost:5000/${achievement.proof.replace(/\\/g, '/')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline border border-primary/20 px-2 py-1 rounded"
+                              >
+                                View Proof
+                              </a>
+                            )}
+                            <Badge variant="secondary">Saved</Badge>
+                          </div>
                         </div>
                       </div>
                     </div>

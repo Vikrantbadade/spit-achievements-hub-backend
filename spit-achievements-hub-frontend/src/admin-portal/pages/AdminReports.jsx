@@ -23,8 +23,7 @@ import {
     User,
     Search
 } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateReportPDF } from "@/utils/pdfGenerator";
 
 export default function AdminReports() {
     const [users, setUsers] = useState([]);
@@ -101,17 +100,27 @@ export default function AdminReports() {
             patents: 0,
             awards: 0,
             fdps: 0,
+            fdpsAttended: 0,
+            fdpsOrganised: 0,
+            workshops: 0,
             projects: 0,
             total: filteredData.length
         };
 
         filteredData.forEach(ach => {
-            const cat = ach.category?.toLowerCase();
-            if (cat?.includes("publication")) stats.publications++;
-            else if (cat?.includes("patent")) stats.patents++;
-            else if (cat?.includes("award")) stats.awards++;
-            else if (cat?.includes("fdp") || cat?.includes("workshop") || cat?.includes("sttp") || cat?.includes("seminar")) stats.fdps++;
-            else if (cat?.includes("project")) stats.projects++;
+            const cat = ach.category?.toLowerCase() || '';
+            const sub = ach.subCategory?.toLowerCase() || '';
+
+            if (cat.includes("publication")) stats.publications++;
+            else if (cat.includes("patent")) stats.patents++;
+            else if (cat.includes("award")) stats.awards++;
+            else if (cat.includes("fdp")) {
+                stats.fdps++;
+                if (sub.includes("organised")) stats.fdpsOrganised++;
+                else stats.fdpsAttended++;
+            }
+            else if (cat.includes("workshop")) stats.workshops++;
+            else if (cat.includes("project")) stats.projects++;
         });
 
         return stats;
@@ -134,7 +143,6 @@ export default function AdminReports() {
     const handleExportPDF = () => {
         if (!selectedUser) return;
         const user = users.find(u => u._id === selectedUser);
-        const doc = new jsPDF();
 
         let period;
         if (activeView === "monthly") {
@@ -145,64 +153,18 @@ export default function AdminReports() {
             period = `Annual Report ${selectedYear}`;
         }
 
-        // Title
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text("DEPARTMENTAL FACULTY ACHIEVEMENT REPORT", 20, 20);
-        doc.setFontSize(12);
-        doc.text(`(Period: ${period})`, 20, 28);
+        const reportData = getFilteredAchievements();
+        const stats = calculateStats(reportData);
 
-        // 1. General Information
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("1. General Information", 20, 40);
-
-        doc.setFont("helvetica", "normal");
-        const infoStartY = 50;
-        const lineHeight = 7;
-
-        doc.text(`• Name of Institution: SPIT`, 25, infoStartY);
-        doc.text(`• Name of Department: ${user?.department?.name || 'Unknown'}`, 25, infoStartY + lineHeight);
-        doc.text(`• Academic Year: ${selectedYear}`, 25, infoStartY + lineHeight * 2);
-        doc.text(`• Name of Faculty: ${user?.name || 'Unknown'}`, 25, infoStartY + lineHeight * 3);
-
-        // 2. Summary
-        doc.setFont("helvetica", "bold");
-        doc.text("2. Summary of Achievements (At a Glance)", 20, infoStartY + lineHeight * 5);
-
-        const tableData = [
-            ["1", "Research Publications", currentStats.publications],
-            ["2", "Books / Book Chapters", "0"],
-            ["3", "Conferences / Seminars Attended", "0"],
-            ["4", "FDP / Workshops / STTP", currentStats.fdps],
-            ["5", "Awards / Recognitions", currentStats.awards],
-            ["6", "Research Projects / Grants", currentStats.projects],
-            ["7", "Patents (Published/Granted)", currentStats.patents],
-            ["8", "Consultancy / MoUs", "0"],
-            ["9", "Resource Person / Invited Talks", "0"],
-        ];
-
-        autoTable(doc, {
-            startY: infoStartY + lineHeight * 6,
-            head: [["Sl. No.", "Achievement Category", "Number"]],
-            body: tableData,
-            theme: 'plain',
-            headStyles: { fontStyle: 'bold' },
-            styles: { cellPadding: 2 },
-            columnStyles: {
-                0: { cellWidth: 20 },
-                1: { cellWidth: 100 },
-                2: { cellWidth: 30 }
-            }
+        generateReportPDF(reportData, {
+            title: "FACULTY ACHIEVEMENT REPORT",
+            period,
+            userInfo: {
+                name: user?.name || 'Unknown',
+                department: user?.department?.name || user?.department?.code || 'Unknown'
+            },
+            stats
         });
-
-        const filenameMap = {
-            monthly: `Report_${user.name.split(' ')[0]}_${selectedMonth}_${selectedYear}.pdf`,
-            semester: `Report_${user.name.split(' ')[0]}_${selectedSemester}_${selectedYear}.pdf`,
-            yearly: `Report_${user.name.split(' ')[0]}_Annual_${selectedYear}.pdf`
-        };
-
-        doc.save(filenameMap[activeView]);
     };
 
     const monthOptions = [
