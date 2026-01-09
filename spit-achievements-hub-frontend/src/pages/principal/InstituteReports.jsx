@@ -38,6 +38,8 @@ import {
   Legend,
 } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
+import { generateReportPDF } from "@/utils/pdfGenerator";
+import { useAuth } from "@/context/AuthContext";
 
 const monthOptions = [
   "january", "february", "march", "april", "may", "june",
@@ -113,13 +115,14 @@ const InstituteReports = () => {
   const [achievements, setAchievements] = useState([]);
   const [statsData, setStatsData] = useState({ totalFaculty: 0, totalDepartments: 0 });
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [achievementsRes, statsRes] = await Promise.all([
           api.get('/principal/achievements'),
-          api.get('/principal/overview') // Reusing overview or stats logic
+          api.get('/principal/overview')
         ]);
         setAchievements(achievementsRes.data);
         setStatsData({
@@ -224,6 +227,65 @@ const InstituteReports = () => {
       })),
     [departmentComparison]
   );
+
+  // Export PDF Handler
+  const handleExportPDF = () => {
+    const dataToExport = activeView === 'monthly' ? monthlyAchievements : semesterAchievements;
+    const statsToUse = activeView === 'monthly' ? monthlyStats : semesterStats;
+    const periodLabel = activeView === 'monthly'
+      ? `${selectedMonth.toUpperCase()} ${selectedYear}`
+      : `${selectedSemester.toUpperCase()} SEMESTER ${selectedYear}`;
+
+    const config = {
+      title: "INSTITUTE ACHIEVEMENT REPORT",
+      period: periodLabel,
+      userInfo: {
+        name: user?.name || "Principal",
+        department: "All Departments"
+      },
+      stats: statsToUse
+    };
+
+    generateReportPDF(dataToExport, config);
+  };
+
+  // Export Excel Handler
+  const handleExportExcel = async () => {
+    try {
+      const params = new URLSearchParams();
+
+      if (activeView === 'monthly') {
+        const monthIdx = monthOptions.indexOf(selectedMonth);
+        const startDate = new Date(Number(selectedYear), monthIdx, 1);
+        const endDate = new Date(Number(selectedYear), monthIdx + 1, 0);
+        params.append('startDate', startDate.toISOString());
+        params.append('endDate', endDate.toISOString());
+      } else {
+        const isOdd = selectedSemester === "odd";
+        const startMonth = isOdd ? 6 : 0;
+        const endMonth = isOdd ? 11 : 5;
+
+        const startDate = new Date(Number(selectedYear), startMonth, 1);
+        const endDate = new Date(Number(selectedYear), endMonth + 1, 0);
+        params.append('startDate', startDate.toISOString());
+        params.append('endDate', endDate.toISOString());
+      }
+
+      const response = await api.get(`/reports/export/excel?${params.toString()}`, {
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Institute_Report_${Date.now()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Export failed", error);
+    }
+  };
 
   const monthCards = [
     { title: "Total Achievements", value: monthlyStats.total, icon: Trophy, trend: "—" },
@@ -351,7 +413,7 @@ const InstituteReports = () => {
                       <SelectItem value="2023">2023</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="default" size="sm" className="gap-2">
+                  <Button onClick={handleExportPDF} variant="default" size="sm" className="gap-2">
                     <Download className="h-4 w-4" />
                     Export PDF
                   </Button>
@@ -407,7 +469,7 @@ const InstituteReports = () => {
                       <SelectItem value="2023">2023</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="default" size="sm" className="gap-2">
+                  <Button onClick={handleExportExcel} variant="default" size="sm" className="gap-2">
                     <Download className="h-4 w-4" />
                     Export Excel
                   </Button>
@@ -463,7 +525,7 @@ const InstituteReports = () => {
                   <SelectItem value="2023">2023</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="default" size="sm" className="gap-2">
+              <Button onClick={handleExportExcel} variant="default" size="sm" className="gap-2">
                 <Download className="h-4 w-4" />
                 Export Excel
               </Button>

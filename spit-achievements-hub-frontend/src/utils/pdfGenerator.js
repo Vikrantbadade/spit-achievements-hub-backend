@@ -12,15 +12,14 @@ const loadImage = (src) => {
     });
 };
 
-export const generateReportPDF = async (reportData, reportConfig) => {
+// Helper to add report content to an existing doc
+const addReportPage = async (doc, reportData, reportConfig) => {
     const {
         title = "ACHIEVEMENT REPORT",
         period = "",
         userInfo = {},
         stats = {}
     } = reportConfig;
-
-    const doc = new jsPDF();
 
     // --- HEADER ---
     // Load Logo
@@ -112,18 +111,6 @@ export const generateReportPDF = async (reportData, reportConfig) => {
     doc.text("2. Detailed Achievements", 15, yPos);
     yPos += 5;
 
-    // Helper to filter achievements
-    const getByType = (list, cat, subMap = null) => {
-        return list.filter(a => {
-            if (a.category !== cat) return false;
-            if (subMap) {
-                // Check subCategory matches one of the targets
-                return subMap.includes(a.subCategory);
-            }
-            return true;
-        });
-    };
-
     const publications = reportData.filter(a => a.category === "Publication");
     const fdpsOrganised = reportData.filter(a => a.category === "FDP" && a.subCategory === "Organised");
     const fdpsAttended = reportData.filter(a => a.category === "FDP" && a.subCategory === "Attended");
@@ -132,85 +119,69 @@ export const generateReportPDF = async (reportData, reportConfig) => {
         !["Publication", "FDP", "Workshop"].includes(a.category)
     );
 
-    // 2.1 Publications
-    if (publications.length > 0) {
-        doc.text("2.1 Research Publications", 15, yPos);
-        autoTable(doc, {
-            startY: yPos + 2,
-            head: [["Title", "Type", "Date"]],
-            body: publications.map(p => [
-                p.title,
-                p.subCategory || "-",
-                new Date(p.achievementDate).toLocaleDateString()
-            ]),
-            headStyles: { fillColor: [75, 85, 99] }, // Gray
-            margin: { left: 15, right: 15 }
-        });
-        yPos = doc.lastAutoTable.finalY + 10;
+    const addTable = (title, cols, data) => {
+        if (data.length > 0) {
+            // Check space
+            if (yPos > 250) {
+                doc.addPage();
+                yPos = 20;
+            }
+
+            doc.text(title, 15, yPos);
+            autoTable(doc, {
+                startY: yPos + 2,
+                head: [cols],
+                body: data,
+                headStyles: { fillColor: [75, 85, 99] },
+                margin: { left: 15, right: 15 }
+            });
+            yPos = doc.lastAutoTable.finalY + 10;
+        }
     }
 
-    // 2.2 FDPs Organised
-    if (fdpsOrganised.length > 0) {
-        // Check space
-        if (yPos > 250) { doc.addPage(); yPos = 20; }
+    addTable("2.1 Research Publications", ["Title", "Type", "Date"], publications.map(p => [
+        p.title,
+        p.subCategory || "-",
+        new Date(p.achievementDate).toLocaleDateString()
+    ]));
 
-        doc.text("2.2 FDPs Organised", 15, yPos);
-        autoTable(doc, {
-            startY: yPos + 2,
-            head: [["Title", "Funding Agency", "Grant (Rs)", "Duration", "Dates"]],
-            body: fdpsOrganised.map(item => [
-                item.title,
-                item.fundedBy || "-",
-                item.grantAmount ? `Rs. ${item.grantAmount}` : "-",
-                item.duration || "-",
-                `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}`
-            ]),
-            headStyles: { fillColor: [75, 85, 99] },
-            margin: { left: 15, right: 15 }
-        });
-        yPos = doc.lastAutoTable.finalY + 10;
-    }
+    addTable("2.2 FDPs Organised", ["Title", "Funding Agency", "Grant (Rs)", "Duration", "Dates"], fdpsOrganised.map(item => [
+        item.title,
+        item.fundedBy || "-",
+        item.grantAmount ? `Rs. ${item.grantAmount}` : "-",
+        item.duration || "-",
+        `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}`
+    ]));
 
-    // 2.3 Workshops / FDPs Attended
     const training = [...fdpsAttended, ...workshops];
-    if (training.length > 0) {
-        if (yPos > 250) { doc.addPage(); yPos = 20; }
+    addTable("2.3 Workshops / FDPs (Attended/Conducted)", ["Category", "Title", "Duration", "Dates"], training.map(item => [
+        `${item.category} (${item.subCategory || 'General'})`,
+        item.title,
+        item.duration || "-",
+        (item.startDate && item.endDate) ? `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}` : new Date(item.achievementDate).toLocaleDateString()
+    ]));
 
-        doc.text("2.3 Workshops / FDPs (Attended/Conducted)", 15, yPos);
-        autoTable(doc, {
-            startY: yPos + 2,
-            head: [["Category", "Title", "Duration", "Dates"]],
-            body: training.map(item => [
-                `${item.category} (${item.subCategory || 'General'})`,
-                item.title,
-                item.duration || "-",
-                (item.startDate && item.endDate) ? `${new Date(item.startDate).toLocaleDateString()} - ${new Date(item.endDate).toLocaleDateString()}` : new Date(item.achievementDate).toLocaleDateString()
-            ]),
-            headStyles: { fillColor: [75, 85, 99] },
-            margin: { left: 15, right: 15 }
-        });
-        yPos = doc.lastAutoTable.finalY + 10;
+    addTable("2.4 Other Achievements", ["Category", "Title", "Date", "Description"], others.map(item => [
+        item.category,
+        item.title,
+        new Date(item.achievementDate).toLocaleDateString(),
+        item.description || "-"
+    ]));
+};
+
+export const generateReportPDF = async (reportData, reportConfig) => {
+    const doc = new jsPDF();
+    await addReportPage(doc, reportData, reportConfig);
+    doc.save(`Report_${reportConfig.userInfo.name?.split(' ')[0]}_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+export const generateBulkReportPDF = async (reports, filename) => {
+    const doc = new jsPDF();
+
+    for (let i = 0; i < reports.length; i++) {
+        if (i > 0) doc.addPage();
+        await addReportPage(doc, reports[i].reportData, reports[i].reportConfig);
     }
 
-    // 2.4 Others
-    if (others.length > 0) {
-        if (yPos > 250) { doc.addPage(); yPos = 20; }
-
-        doc.text("2.4 Other Achievements", 15, yPos);
-        autoTable(doc, {
-            startY: yPos + 2,
-            head: [["Category", "Title", "Date", "Description"]],
-            body: others.map(item => [
-                item.category,
-                item.title,
-                new Date(item.achievementDate).toLocaleDateString(),
-                item.description || "-"
-            ]),
-            headStyles: { fillColor: [75, 85, 99] },
-            margin: { left: 15, right: 15 }
-        });
-    }
-
-    // Save
-    doc.save(`Report_${userInfo.name?.split(' ')[0]}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(filename || `Bulk_Report_${new Date().toISOString().split('T')[0]}.pdf`);
 };

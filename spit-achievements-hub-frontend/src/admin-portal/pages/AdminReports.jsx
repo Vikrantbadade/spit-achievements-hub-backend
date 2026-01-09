@@ -23,7 +23,8 @@ import {
     User,
     Search
 } from "lucide-react";
-import { generateReportPDF } from "@/utils/pdfGenerator";
+import { generateReportPDF, generateBulkReportPDF } from "@/utils/pdfGenerator";
+import { Building2 } from "lucide-react";
 
 export default function AdminReports() {
     const [users, setUsers] = useState([]);
@@ -35,19 +36,28 @@ export default function AdminReports() {
     const [selectedSemester, setSelectedSemester] = useState("odd");
     const [achievements, setAchievements] = useState([]);
 
-    // Fetch Users (Faculty & HOD)
+    // Bulk Export State
+    const [departments, setDepartments] = useState([]);
+    const [selectedBulkDept, setSelectedBulkDept] = useState("");
+    const [bulkLoading, setBulkLoading] = useState(false);
+
+    // Fetch Users & Departments on Mount
     useEffect(() => {
-        const fetchUsers = async () => {
+        const fetchInitialData = async () => {
             try {
-                const { data } = await api.get("/admin/users");
-                // Filter for Faculty and HODs only
-                const facultyUsers = data.filter(u => u.role === "Faculty" || u.role === "HOD");
+                // Fetch Users
+                const { data: userData } = await api.get("/admin/users");
+                const facultyUsers = userData.filter(u => u.role === "Faculty" || u.role === "HOD");
                 setUsers(facultyUsers);
+
+                // Fetch Departments
+                const { data: deptData } = await api.get("/departments");
+                setDepartments(deptData);
             } catch (error) {
-                console.error("Failed to fetch users", error);
+                console.error("Failed to fetch initial data", error);
             }
         };
-        fetchUsers();
+        fetchInitialData();
     }, []);
 
     // Fetch Achievements when user or filters change
@@ -167,6 +177,55 @@ export default function AdminReports() {
         });
     };
 
+    const handleBulkExport = async () => {
+        if (!selectedBulkDept) return;
+        setBulkLoading(true);
+        try {
+            // 1. Fetch all faculty in this department
+            // We already have 'users' state which contains all faculty/HODs
+            const deptFaculty = users.filter(u => u.department?._id === selectedBulkDept || u.department === selectedBulkDept);
+
+            // 2. Fetch all achievements for this department 
+            const { data: deptAchievements } = await api.get(`/admin/achievements?department=${selectedBulkDept}`);
+
+            console.log(`Generating report for ${deptFaculty.length} faculty and ${deptAchievements.length} achievements`);
+
+            // 3. Prepare Report Data
+            const reports = deptFaculty.map(faculty => {
+                // Filter achievements for this faculty
+                // Note: The populated faculty object might be slightly different structure, check _id
+                const facultyAchievements = deptAchievements.filter(a => {
+                    const fId = a.faculty?._id || a.faculty;
+                    return fId === faculty._id;
+                });
+
+                const stats = calculateStats(facultyAchievements);
+
+                return {
+                    reportData: facultyAchievements,
+                    reportConfig: {
+                        title: "FACULTY ACHIEVEMENT REPORT",
+                        period: `Generated on ${new Date().toLocaleDateString()}`,
+                        userInfo: {
+                            name: faculty.name,
+                            department: faculty.department?.name || faculty.department?.code || 'Unknown'
+                        },
+                        stats
+                    }
+                };
+            });
+
+            // 4. Generate Bulk PDF
+            const deptName = departments.find(d => d._id === selectedBulkDept)?.name || "Department";
+            await generateBulkReportPDF(reports, `${deptName}_Full_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+
+        } catch (error) {
+            console.error("Bulk export failed", error);
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     const monthOptions = [
         "january", "february", "march", "april", "may", "june",
         "july", "august", "september", "october", "november", "december",
@@ -211,13 +270,79 @@ export default function AdminReports() {
                 </div>
             </div>
 
-            {selectedUser ? (
+            {selectedUser || activeView === 'bulk' ? (
                 <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
-                    <TabsList className="grid w-full max-w-md grid-cols-3">
+                    <TabsList className="grid w-full max-w-2xl grid-cols-4">
+                        <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
+                        <TabsTrigger value="semester">Semester Report</TabsTrigger>
                         <TabsTrigger value="monthly">Monthly Report</TabsTrigger>
                         <TabsTrigger value="semester">Semester Report</TabsTrigger>
                         <TabsTrigger value="yearly">Yearly Report</TabsTrigger>
+                        <TabsTrigger value="bulk" className="gap-2">
+                            <Building2 className="h-4 w-4" />
+                            Department Bulk Report
+                        </TabsTrigger>
                     </TabsList>
+
+                    <TabsContent value="bulk" className="mt-6">
+                        <Card className="border-2 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="text-2xl flex items-center gap-2">
+                                    <Building2 className="h-6 w-6 text-primary" />
+                                    Department Bulk Report
+                                </CardTitle>
+                                <p className="text-muted-foreground">
+                                    Generate a single PDF containing detailed reports for ALL faculty members in a department.
+                                </p>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="max-w-md space-y-2">
+                                    <label className="text-sm font-medium">Select Department</label>
+                                    <Select value={selectedBulkDept} onValueChange={setSelectedBulkDept}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Choose Department" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {departments.map(dept => (
+                                                <SelectItem key={dept._id} value={dept._id}>
+                                                    {dept.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="p-4 bg-muted rounded-lg border">
+                                    <h4 className="font-semibold mb-2">Report Summary</h4>
+                                    <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                                        <li>Includes all faculty members in the selected department.</li>
+                                        <li>Each faculty report starts on a new page.</li>
+                                        <li>Contains full achievement details (Publications, FDPs, etc.).</li>
+                                        <li>Currently generates a comprehensive report of ALL time achievements.</li>
+                                    </ul>
+                                </div>
+
+                                <Button
+                                    size="lg"
+                                    className="w-full sm:w-auto gap-2"
+                                    onClick={handleBulkExport}
+                                    disabled={!selectedBulkDept || bulkLoading}
+                                >
+                                    {bulkLoading ? (
+                                        <>
+                                            <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                                            Generating Bulk PDF...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="h-5 w-5" />
+                                            Download Complete Department Report
+                                        </>
+                                    )}
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
                     <div className="mt-6">
                         <Card className="border-2 shadow-sm">

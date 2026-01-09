@@ -3,6 +3,7 @@
 // UPDATED: Now returns password hashes to frontend for verification.
 const User = require('../models/User');
 const Department = require('../models/Department');
+const Achievement = require('../models/Achievement');
 const AuditLog = require('../models/AuditLog');
 
 // @desc    Get all users (with optional role/dept filter)
@@ -180,6 +181,29 @@ exports.getSystemLogs = async (req, res) => {
             .skip(pageSize * (page - 1));
 
         res.json({ logs, page, pages: Math.ceil(count / pageSize) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get All Achievements (for bulk reports)
+// @route   GET /api/v1/admin/achievements
+// @access  Admin
+exports.getAllAchievements = async (req, res) => {
+    try {
+        const { department } = req.query;
+        const query = {};
+
+        if (department) {
+            query.department = department;
+        }
+
+        const achievements = await Achievement.find(query)
+            .populate('faculty', 'name email department')
+            .populate('department', 'name code')
+            .sort({ achievementDate: -1 });
+
+        res.json(achievements);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

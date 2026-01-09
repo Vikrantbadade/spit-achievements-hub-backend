@@ -24,13 +24,16 @@ const roles = [
   { value: "principal", label: "Principal", icon: Crown, path: "/principal" },
 ];
 
-const departments = [
-  { value: "computer", label: "Computer Engineering" },
-  { value: "extc", label: "Electronics & Telecommunication" },
-  { value: "cse", label: "Computer Science & Engineering" },
-];
-
 const Login = () => {
+  // Reverted to hardcoded departments for debugging
+  const departments = [
+    { value: "Computer Engineering", label: "Computer Engineering" },
+    { value: "Information Technology", label: "Information Technology" },
+    { value: "Electronics & Telecommunication", label: "Electronics & Telecommunication" },
+    { value: "Computer Science & Engineering", label: "Computer Science & Engineering" },
+    { value: "MCA", label: "MCA" },
+    { value: "Applied Sciences", label: "Applied Sciences" }
+  ];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
@@ -85,18 +88,10 @@ const Login = () => {
       }
 
       // 2. Verify Department (for Faculty/HOD)
-      // Note: Backend 'department.code' e.g., 'COMP', Frontend 'department' value e.g., 'computer'
-      // We need to map them or check loosely.
-      // Based on Login.jsx "departments" array: value="computer", label="Computer Engineering"
-      // Based on "checkDepts.js": name="Computer Engineering", code="COMP"
-      // Let's match by Name (Label) since code might differ in mapped values.
-
       if (role !== 'principal') {
-        const selectedDeptObj = departments.find(d => d.value === department);
-        if (!selectedDeptObj) throw new Error("Invalid department selection");
-
-        if (data.user.department?.name !== selectedDeptObj.label) {
-          throw new Error(`Unauthorized: This account does not belong to ${selectedDeptObj.label}.`);
+        // department state holds the NAME of the selected department
+        if (data.user.department?.name !== department) {
+          throw new Error(`Unauthorized: This account does not belong to ${department}.`);
         }
       }
 

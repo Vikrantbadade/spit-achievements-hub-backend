@@ -1,9 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
-
 /* SPIT College Theme - Maroon & Gold */
 
 @layer base {
@@ -38,11 +37,14 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 348 70% 35%; /* Primary Maroon */
-    --sidebar-foreground: 0 0% 100%; /* White text */
+    --sidebar-background: 348 70% 35%;
+    /* Primary Maroon */
+    --sidebar-foreground: 0 0% 100%;
+    /* White text */
     --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 348 70% 35%;
-    --sidebar-accent: 348 60% 45%; /* Lighter Maroon for hover */
+    --sidebar-accent: 348 60% 45%;
+    /* Lighter Maroon for hover */
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 348 60% 30%;
     --sidebar-ring: 42 80% 55%;
@@ -105,7 +107,10 @@
     font-family: 'Inter', sans-serif;
   }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: 'Playfair Display', serif;
   }
 }
