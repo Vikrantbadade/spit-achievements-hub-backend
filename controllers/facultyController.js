@@ -22,12 +22,37 @@ exports.getMyAchievements = async (req, res) => {
 // Requirement: "Edit achievements" [cite: 15]
 exports.updateAchievement = async (req, res) => {
   try {
+    const { title, description, category, achievementDate, subCategory,
+      startDate, endDate, duration, fundedBy, grantAmount } = req.body;
+
+    const updateData = {
+      title,
+      description,
+      category,
+      achievementDate,
+      subCategory,
+      startDate,
+      endDate,
+      duration,
+      fundedBy,
+      grantAmount,
+      status: 'Pending', // Reset status on edit
+      rejectionReason: null, // Clear rejection reason
+      approvedBy: null,
+      approvedAt: null
+    };
+
+    if (req.file) {
+      updateData.proof = req.file.path;
+    }
+
     const achievement = await Achievement.findOneAndUpdate(
-      { _id: req.params.id, faculty: req.user._id }, // Ensure ownership
-      req.body,
+      { _id: req.params.id, faculty: req.user._id },
+      updateData,
       { new: true }
     );
-    if(!achievement) return res.status(404).json({ message: 'Not found or unauthorized' });
+
+    if (!achievement) return res.status(404).json({ message: 'Not found or unauthorized' });
     res.json(achievement);
   } catch (error) { res.status(500).json({ message: error.message }); }
 };

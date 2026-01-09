@@ -8,7 +8,9 @@ const {
     deleteUser,
     getDashboardStats,
     getSystemLogs,
-    getAllAchievements
+    getAllAchievements,
+    approveAchievement,
+    rejectAchievement
 } = require('../controllers/superAdminController');
 
 // All routes are protected and require 'Admin' role
@@ -23,5 +25,7 @@ router.delete('/users/:id', deleteUser);
 router.get('/stats', getDashboardStats);
 router.get('/logs', getSystemLogs);
 router.get('/achievements', getAllAchievements);
+router.put('/achievements/:id/approve', approveAchievement);
+router.put('/achievements/:id/reject', rejectAchievement);
 
 module.exports = router;

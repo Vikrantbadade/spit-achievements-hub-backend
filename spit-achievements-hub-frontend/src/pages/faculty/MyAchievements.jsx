@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Search, Eye } from "lucide-react";
+import { Edit, Trash2, Search, Eye, AlertCircle } from "lucide-react";
 import EditAchievement from "./EditAchievement";
 import {
   Dialog,
@@ -112,6 +112,7 @@ const MyAchievements = () => {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Proof</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -129,6 +130,25 @@ const MyAchievements = () => {
                     {achievement.title}
                   </TableCell>
                   <TableCell>{achievement.category}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <Badge variant={
+                        achievement.status === 'Approved' ? 'success' :
+                          achievement.status === 'Rejected' ? 'destructive' : 'outline'
+                      } className={
+                        achievement.status === 'Approved' ? "bg-green-100 text-green-800 hover:bg-green-100 w-fit" :
+                          achievement.status === 'Rejected' ? "bg-red-100 text-red-800 hover:bg-red-100 w-fit" :
+                            "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 w-fit"
+                      }>
+                        {achievement.status || 'Pending'}
+                      </Badge>
+                      {achievement.status === 'Rejected' && (
+                        <span className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" /> {achievement.rejectionReason}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {new Date(achievement.achievementDate).toLocaleDateString()}
                   </TableCell>
@@ -178,6 +198,7 @@ const MyAchievements = () => {
               <EditAchievement
                 achievement={selectedAchievement}
                 onClose={() => setIsEditOpen(false)}
+                onSuccess={fetchAchievements}
               />
             )}
           </DialogContent>

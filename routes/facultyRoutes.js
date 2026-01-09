@@ -29,42 +29,16 @@ const upload = require('../middleware/upload');
 
 // ... (keep delete route as is)
 
-router.post('/achievement', upload.single('proof'), async (req, res) => {
-  try {
-    const achievementData = {
-      ...req.body,
-      faculty: req.user._id,
-      department: req.user.department
-    };
+const {
+  addAchievement,
+  getMyAchievements,
+  updateAchievement
+} = require('../controllers/facultyController');
 
-    if (req.file) {
-      achievementData.proof = req.file.path;
-    }
+router.post('/achievement', upload.single('proof'), addAchievement);
 
-    const achievement = await Achievement.create(achievementData);
-    res.status(201).json(achievement);
-  } catch (error) { res.status(500).json({ message: error.message }); }
-});
+router.get('/achievements', getMyAchievements);
 
-router.get('/achievements', async (req, res) => {
-  try {
-    const achievements = await Achievement.find({ faculty: req.user._id }).sort({ achievementDate: -1 });
-    res.json(achievements);
-  } catch (error) { res.status(500).json({ message: error.message }); }
-});
-
-router.put('/achievement/:id', upload.single('proof'), async (req, res) => {
-  try {
-    const updateData = { ...req.body };
-
-    if (req.file) {
-      updateData.proof = req.file.path;
-    }
-
-    const achievement = await Achievement.findOneAndUpdate({ _id: req.params.id, faculty: req.user._id }, updateData, { new: true });
-    if (!achievement) return res.status(404).json({ message: 'Not found' });
-    res.json(achievement);
-  } catch (error) { res.status(500).json({ message: error.message }); }
-});
+router.put('/achievement/:id', upload.single('proof'), updateAchievement);
 
 module.exports = router;

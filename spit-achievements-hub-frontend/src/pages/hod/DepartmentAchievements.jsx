@@ -17,7 +17,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Search, Check, X, AlertCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 const DepartmentAchievements = () => {
@@ -28,8 +38,25 @@ const DepartmentAchievements = () => {
   const [filterFaculty, setFilterFaculty] = useState("all");
   const { user } = useAuth();
 
+  const [rejectId, setRejectId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [isRejectOpen, setIsRejectOpen] = useState(false);
+
+  // Helper to refresh data
+  const fetchAchievements = async () => {
+    try {
+      setLoading(true);
+      constZF = await api.get('/hod/achievements');
+      setAchievements(response.data);
+    } catch (error) {
+      console.error("Failed to fetch department achievements", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchAchievements = async () => {
+    const loadData = async () => {
       try {
         const response = await api.get('/hod/achievements');
         setAchievements(response.data);
@@ -39,8 +66,42 @@ const DepartmentAchievements = () => {
         setLoading(false);
       }
     };
-    fetchAchievements();
+    loadData();
   }, []);
+
+  const handleApprove = async (id) => {
+    try {
+      await api.put(`/hod/achievement/${id}/approve`);
+      // Update local state to reflect change immediately
+      setAchievements(prev => prev.map(a =>
+        a._id === id ? { ...a, status: 'Approved' } : a
+      ));
+    } catch (error) {
+      console.error("Failed to approve", error);
+      alert("Failed to approve achievement");
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectId || !rejectReason) return;
+    try {
+      await api.put(`/hod/achievement/${rejectId}/reject`, { reason: rejectReason });
+      setAchievements(prev => prev.map(a =>
+        a._id === rejectId ? { ...a, status: 'Rejected', rejectionReason: rejectReason } : a
+      ));
+      setIsRejectOpen(false);
+      setRejectReason("");
+      setRejectId(null);
+    } catch (error) {
+      console.error("Failed to reject", error);
+      alert("Failed to reject achievement");
+    }
+  };
+
+  const openRejectDialog = (id) => {
+    setRejectId(id);
+    setIsRejectOpen(true);
+  };
 
   const filteredAchievements = achievements.filter((achievement) => {
     const facultyName = achievement.faculty?.name || 'Unknown';
@@ -116,14 +177,16 @@ const DepartmentAchievements = () => {
               <TableHead>Faculty</TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Proof</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAchievements.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
                   No achievements found matching your criteria.
                 </TableCell>
               </TableRow>
@@ -133,9 +196,30 @@ const DepartmentAchievements = () => {
                   <TableCell className="font-medium">
                     {achievement.faculty?.name || 'Unknown'}
                   </TableCell>
-                  <TableCell>{achievement.title}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span>{achievement.title}</span>
+                      {achievement.status === 'Rejected' && (
+                        <span className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" /> {achievement.rejectionReason}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{achievement.category}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      achievement.status === 'Approved' ? 'success' :
+                        achievement.status === 'Rejected' ? 'destructive' : 'outline'
+                    } className={
+                      achievement.status === 'Approved' ? "bg-green-100 text-green-800 hover:bg-green-100" :
+                        achievement.status === 'Rejected' ? "bg-red-100 text-red-800 hover:bg-red-100" :
+                          "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                    }>
+                      {achievement.status || 'Pending'}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {new Date(achievement.achievementDate).toLocaleDateString()}
@@ -154,12 +238,56 @@ const DepartmentAchievements = () => {
                       "-"
                     )}
                   </TableCell>
+                  <TableCell>
+                    {(!achievement.status || achievement.status === 'Pending') && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                          onClick={() => handleApprove(achievement._id)}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => openRejectDialog(achievement._id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={isRejectOpen} onOpenChange={setIsRejectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Achievement</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Please provide a reason for rejecting this achievement.
+            </p>
+            <Textarea
+              placeholder="Reason for rejection..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRejectOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReject}>Confirm Rejection</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

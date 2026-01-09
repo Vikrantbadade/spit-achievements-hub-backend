@@ -18,7 +18,15 @@ const achievementSchema = new mongoose.Schema({
   achievementDate: { type: Date, required: true },
   proof: { type: String },
   faculty: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', required: true }
+  department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', required: true },
+  status: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending'
+  },
+  rejectionReason: { type: String },
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedAt: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Achievement', achievementSchema);

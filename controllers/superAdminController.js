@@ -208,3 +208,69 @@ exports.getAllAchievements = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Approve Achievement (Admin Override)
+// @route   PUT /api/v1/admin/achievements/:id/approve
+// @access  Admin
+exports.approveAchievement = async (req, res) => {
+    try {
+        const achievement = await Achievement.findById(req.params.id);
+
+        if (!achievement) {
+            return res.status(404).json({ message: "Achievement not found" });
+        }
+
+        achievement.status = 'Approved';
+        achievement.approvedBy = req.user._id;
+        achievement.approvedAt = Date.now();
+        achievement.rejectionReason = null; // Clear previous rejection
+
+        await achievement.save();
+
+        // Log action
+        await AuditLog.create({
+            actor: req.user._id,
+            action: 'APPROVE_ACHIEVEMENT',
+            targetUser: achievement.faculty,
+            details: { achievementId: achievement._id, title: achievement.title },
+            ipAddress: req.ip
+        });
+
+        res.status(200).json({ message: "Achievement Approved Successfully" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Reject Achievement (Admin Override)
+// @route   PUT /api/v1/admin/achievements/:id/reject
+// @access  Admin
+exports.rejectAchievement = async (req, res) => {
+    try {
+        const achievement = await Achievement.findById(req.params.id);
+
+        if (!achievement) {
+            return res.status(404).json({ message: "Achievement not found" });
+        }
+
+        achievement.status = 'Rejected';
+        achievement.rejectionReason = req.body.reason || "Admin Rejection";
+        achievement.approvedBy = req.user._id;
+        achievement.approvedAt = Date.now();
+
+        await achievement.save();
+
+        // Log action
+        await AuditLog.create({
+            actor: req.user._id,
+            action: 'REJECT_ACHIEVEMENT',
+            targetUser: achievement.faculty,
+            details: { achievementId: achievement._id, title: achievement.title, reason: achievement.rejectionReason },
+            ipAddress: req.ip
+        });
+
+        res.status(200).json({ message: "Achievement Rejected" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

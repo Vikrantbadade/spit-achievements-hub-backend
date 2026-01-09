@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/axios";
 import { useAuth } from "../../context/AuthContext";
 import StatCard from "../../components/StatCard";
-import { Award, BookOpen, FileText, Trophy, Briefcase } from "lucide-react";
+import { Award, BookOpen, FileText, Trophy, Briefcase, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Bar,
   BarChart,
@@ -153,12 +154,30 @@ const FacultyHome = () => {
                   className="flex items-center justify-between p-4 bg-muted rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-foreground">
-                      {achievement.title}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground">
+                        {achievement.title}
+                      </p>
+                      <Badge variant={
+                        achievement.status === 'Approved' ? 'success' :
+                          achievement.status === 'Rejected' ? 'destructive' : 'outline'
+                      } className={
+                        achievement.status === 'Approved' ? "bg-green-100 text-green-800 hover:bg-green-100 text-[10px] px-1 py-0" :
+                          achievement.status === 'Rejected' ? "bg-red-100 text-red-800 hover:bg-red-100 text-[10px] px-1 py-0" :
+                            "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 text-[10px] px-1 py-0"
+                      }>
+                        {achievement.status || 'Pending'}
+                      </Badge>
+                    </div>
+
                     <p className="text-sm text-muted-foreground">
                       {achievement.category}
                     </p>
+                    {achievement.status === 'Rejected' && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {achievement.rejectionReason}
+                      </p>
+                    )}
                   </div>
                   <span className="text-sm text-muted-foreground">
                     {new Date(achievement.achievementDate).toLocaleDateString()}

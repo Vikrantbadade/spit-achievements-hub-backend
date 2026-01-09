@@ -11,14 +11,21 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    // Restore user from localStorage on initial load
+    const savedUser = localStorage.getItem("userInfo");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
 
   const login = (userData) => {
     setUser(userData);
+    localStorage.setItem("userInfo", JSON.stringify(userData));
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem("userInfo");
+    localStorage.removeItem("authToken"); // Ensure token is also cleared
   };
 
   const value = {

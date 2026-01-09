@@ -31,7 +31,7 @@ const subCategories = {
   FDP: ["Attended", "Organised"],
 };
 
-const EditAchievement = ({ achievement, onClose }) => {
+const EditAchievement = ({ achievement, onClose, onSuccess }) => {
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -111,8 +111,8 @@ const EditAchievement = ({ achievement, onClose }) => {
         description: "Achievement updated successfully",
       });
 
+      if (onSuccess) onSuccess();
       if (onClose) onClose();
-      window.location.reload();
 
     } catch (error) {
       console.error(error);
