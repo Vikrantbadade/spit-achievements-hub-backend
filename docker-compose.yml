@@ -15,13 +15,7 @@ services:
   frontend:
     build: ./spit-achievements-hub-frontend
     ports:
-      - "8080:8080"
-    environment:
-      - VITE_API_URL=http://localhost:5000
-      - PROXY_TARGET=http://backend:5000
-    volumes:
-      - ./spit-achievements-hub-frontend:/app
-      - /app/node_modules
+      - "8080:80"
     depends_on:
       - backend
     restart: always

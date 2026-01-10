@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const env = require('./config/env'); // Validate Env Vars immediately
+const mongoose = require('mongoose');
 const morgan = require('morgan');
 const connectDB = require('./config/db');
 
