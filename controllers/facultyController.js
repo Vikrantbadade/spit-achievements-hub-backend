@@ -1,6 +1,7 @@
 const Achievement = require('../models/Achievement');
 const User = require('../models/User'); // Import User model to find HOD
 const { sendNewSubmissionNotification } = require('../utils/emailService');
+const ApiResponse = require('../utils/ApiResponse');
 
 exports.addAchievement = async (req, res) => {
   try {
@@ -16,15 +17,15 @@ exports.addAchievement = async (req, res) => {
     if (hod && hod.email) {
       await sendNewSubmissionNotification(hod.email, req.user.name, title);
     }
-    res.status(201).json(achievement);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+    res.status(201).json(new ApiResponse(201, achievement, "Achievement submitted successfully"));
+  } catch (error) { res.status(500).json(new ApiResponse(500, null, error.message)); }
 };
 
 exports.getMyAchievements = async (req, res) => {
   try {
     const achievements = await Achievement.find({ faculty: req.user._id }).sort({ achievementDate: -1 });
-    res.json(achievements);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+    res.status(200).json(new ApiResponse(200, achievements));
+  } catch (error) { res.status(500).json(new ApiResponse(500, null, error.message)); }
 };
 
 // Requirement: "Edit achievements" [cite: 15]
@@ -60,7 +61,7 @@ exports.updateAchievement = async (req, res) => {
       { new: true }
     );
 
-    if (!achievement) return res.status(404).json({ message: 'Not found or unauthorized' });
-    res.json(achievement);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+    if (!achievement) return res.status(404).json(new ApiResponse(404, null, 'Not found or unauthorized'));
+    res.status(200).json(new ApiResponse(200, achievement, "Achievement updated successfully"));
+  } catch (error) { res.status(500).json(new ApiResponse(500, null, error.message)); }
 };

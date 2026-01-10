@@ -6,6 +6,7 @@ const Department = require('../models/Department');
 const Achievement = require('../models/Achievement');
 const AuditLog = require('../models/AuditLog');
 const { sendApprovalNotification, sendRejectionNotification } = require('../utils/emailService');
+const ApiResponse = require('../utils/ApiResponse');
 
 // @desc    Get all users (with optional role/dept filter)
 // @route   GET /api/v1/admin/users
@@ -20,9 +21,9 @@ exports.getAllUsers = async (req, res) => {
         const users = await User.find(query)
             .populate('department', 'name code');
 
-        res.json(users);
+        res.status(200).json(new ApiResponse(200, users));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -35,7 +36,7 @@ exports.createUser = async (req, res) => {
 
         const userExists = await User.findOne({ email });
         if (userExists) {
-            return res.status(400).json({ message: 'User already exists' });
+            return res.status(400).json(new ApiResponse(400, null, 'User already exists'));
         }
 
         const user = await User.create({
@@ -55,12 +56,10 @@ exports.createUser = async (req, res) => {
             ipAddress: req.ip
         });
 
-        res.status(201).json({
-            message: 'User created successfully',
-            user: { id: user._id, name: user.name, email: user.email, role: user.role }
-        });
+        const data = { id: user._id, name: user.name, email: user.email, role: user.role };
+        res.status(201).json(new ApiResponse(201, data, 'User created successfully'));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -70,7 +69,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) return res.status(404).json(new ApiResponse(404, null, 'User not found'));
 
         const { name, email, role, department, password } = req.body;
 
@@ -95,12 +94,10 @@ exports.updateUser = async (req, res) => {
             ipAddress: req.ip
         });
 
-        res.json({
-            message: 'User updated successfully',
-            user: { id: updatedUser._id, name: updatedUser.name, role: updatedUser.role }
-        });
+        const data = { id: updatedUser._id, name: updatedUser.name, role: updatedUser.role };
+        res.status(200).json(new ApiResponse(200, data, 'User updated successfully'));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -110,10 +107,10 @@ exports.updateUser = async (req, res) => {
 exports.deleteUser = async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) return res.status(404).json(new ApiResponse(404, null, 'User not found'));
 
         if (user._id.toString() === req.user._id.toString()) {
-            return res.status(400).json({ message: 'Cannot delete yourself' });
+            return res.status(400).json(new ApiResponse(400, null, 'Cannot delete yourself'));
         }
 
         await User.deleteOne({ _id: req.params.id });
@@ -126,9 +123,9 @@ exports.deleteUser = async (req, res) => {
             ipAddress: req.ip
         });
 
-        res.json({ message: 'User removed' });
+        res.status(200).json(new ApiResponse(200, null, 'User removed'));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -150,7 +147,7 @@ exports.getDashboardStats = async (req, res) => {
             .limit(5)
             .populate('actor', 'name email');
 
-        res.json({
+        const data = {
             counts: {
                 total: totalUsers,
                 faculty: facultyCount,
@@ -160,9 +157,10 @@ exports.getDashboardStats = async (req, res) => {
                 departments: totalDepts
             },
             recentLogs
-        });
+        };
+        res.status(200).json(new ApiResponse(200, data));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -181,9 +179,9 @@ exports.getSystemLogs = async (req, res) => {
             .limit(pageSize)
             .skip(pageSize * (page - 1));
 
-        res.json({ logs, page, pages: Math.ceil(count / pageSize) });
+        res.status(200).json(new ApiResponse(200, { logs, page, pages: Math.ceil(count / pageSize) }));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -204,9 +202,9 @@ exports.getAllAchievements = async (req, res) => {
             .populate('department', 'name code')
             .sort({ achievementDate: -1 });
 
-        res.json(achievements);
+        res.status(200).json(new ApiResponse(200, achievements));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -218,7 +216,7 @@ exports.approveAchievement = async (req, res) => {
         const achievement = await Achievement.findById(req.params.id).populate('faculty', 'name email');
 
         if (!achievement) {
-            return res.status(404).json({ message: "Achievement not found" });
+            return res.status(404).json(new ApiResponse(404, null, "Achievement not found"));
         }
 
         achievement.status = 'Approved';
@@ -242,9 +240,9 @@ exports.approveAchievement = async (req, res) => {
             ipAddress: req.ip
         });
 
-        res.status(200).json({ message: "Achievement Approved Successfully" });
+        res.status(200).json(new ApiResponse(200, null, "Achievement Approved Successfully"));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -256,7 +254,7 @@ exports.rejectAchievement = async (req, res) => {
         const achievement = await Achievement.findById(req.params.id).populate('faculty', 'name email');
 
         if (!achievement) {
-            return res.status(404).json({ message: "Achievement not found" });
+            return res.status(404).json(new ApiResponse(404, null, "Achievement not found"));
         }
 
         achievement.status = 'Rejected';
@@ -280,9 +278,9 @@ exports.rejectAchievement = async (req, res) => {
             ipAddress: req.ip
         });
 
-        res.status(200).json({ message: "Achievement Rejected" });
+        res.status(200).json(new ApiResponse(200, null, "Achievement Rejected"));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };
 
@@ -298,8 +296,8 @@ exports.getSystemHealth = async (req, res) => {
             nodeVersion: process.version,
             pid: process.pid
         };
-        res.json(health);
+        res.status(200).json(new ApiResponse(200, health));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json(new ApiResponse(500, null, error.message));
     }
 };

@@ -28,6 +28,10 @@ api.interceptors.request.use(
 // Response interceptor to handle global errors (like 401 Unauthorized)
 api.interceptors.response.use(
     (response) => {
+        // Unwrap ApiResponse if present
+        if (response.data && response.data.success && response.data.data !== undefined) {
+            response.data = response.data.data;
+        }
         return response;
     },
     (error) => {

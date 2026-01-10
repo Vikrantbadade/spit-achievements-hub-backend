@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import api from "@/lib/axios";
+import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Select,

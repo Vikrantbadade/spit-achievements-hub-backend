@@ -85,7 +85,7 @@ export default function UserManagement() {
                 const { data } = await api.put(`/admin/users/${editingUser._id}`, payload);
                 setUsers(users.map(u => u._id === editingUser._id ? {
                     ...u,
-                    ...data.user,
+                    ...data,
                     department: departments.find(d => d._id === payload.department) || { name: 'Updated' }
                 } : u));
                 fetchUsers();

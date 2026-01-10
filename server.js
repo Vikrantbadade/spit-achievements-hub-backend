@@ -19,6 +19,8 @@ const mongoSanitize = require('express-mongo-sanitize');
 const compression = require('compression');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpecs = require('./config/swagger');
+const hpp = require('hpp');
+const xss = require('xss-clean');
 
 const app = express();
 
@@ -37,7 +39,12 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Data Sanitization
+// Data Sanitization
 app.use(mongoSanitize());
+app.use(xss());
+
+// Prevent Parameter Pollution
+app.use(hpp());
 
 // Swagger API Docs
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
@@ -62,4 +69,19 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
+const server = app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
+
+// Graceful Shutdown
+const gracefulShutdown = () => {
+    logger.info('Received shutdown signal. Closing server...');
+    server.close(() => {
+        logger.info('HTTP server closed.');
+        mongoose.connection.close(false, () => {
+            logger.info('MongoDB connection closed.');
+            process.exit(0);
+        });
+    });
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);

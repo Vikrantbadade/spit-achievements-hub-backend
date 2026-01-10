@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Achievement = require('../models/Achievement');
 const { sendApprovalNotification, sendRejectionNotification } = require('../utils/emailService');
+const ApiResponse = require('../utils/ApiResponse');
 
 // Helper: Get all faculty IDs in HOD's department
 const getDepartmentFacultyIds = async (department) => {
@@ -30,9 +31,9 @@ exports.getDashboardStats = async (req, res) => {
       totalFaculty
     };
 
-    res.status(200).json(stats);
+    res.status(200).json(new ApiResponse(200, stats));
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json(new ApiResponse(500, null, error.message));
   }
 };
 
@@ -46,9 +47,9 @@ exports.getFacultyList = async (req, res) => {
       department: req.user.department
     }).select('name email designation department');
 
-    res.status(200).json(faculty);
+    res.status(200).json(new ApiResponse(200, faculty));
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json(new ApiResponse(500, null, error.message));
   }
 };
 
@@ -67,7 +68,7 @@ exports.getDepartmentAchievements = async (req, res) => {
 
     res.status(200).json(achievements);
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json(new ApiResponse(500, null, error.message));
   }
 };
 
@@ -101,9 +102,9 @@ exports.approveAchievement = async (req, res) => {
       await sendApprovalNotification(achievement.faculty.email, achievement.faculty.name, achievement.title);
     }
 
-    res.status(200).json({ message: "Achievement Approved Successfully" });
+    res.status(200).json(new ApiResponse(200, null, "Achievement Approved Successfully"));
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json(new ApiResponse(500, null, error.message));
   }
 };
 
@@ -136,9 +137,9 @@ exports.rejectAchievement = async (req, res) => {
       await sendRejectionNotification(achievement.faculty.email, achievement.faculty.name, achievement.title, achievement.rejectionReason);
     }
 
-    res.status(200).json({ message: "Achievement Rejected" });
+    res.status(200).json(new ApiResponse(200, null, "Achievement Rejected"));
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json(new ApiResponse(500, null, error.message));
   }
 };
 
@@ -153,7 +154,7 @@ exports.getSingleFacultyAchievements = async (req, res) => {
     });
 
     if (!targetFaculty) {
-      return res.status(404).json({ message: "Faculty not found in your department" });
+      return res.status(404).json(new ApiResponse(404, null, "Faculty not found in your department"));
     }
 
     const achievements = await Achievement.find({
@@ -162,6 +163,6 @@ exports.getSingleFacultyAchievements = async (req, res) => {
 
     res.status(200).json(achievements);
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json(new ApiResponse(500, null, error.message));
   }
 };

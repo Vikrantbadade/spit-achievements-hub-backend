@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import api from "@/lib/axios";
+import api from "@/lib/api";
 import StatCard from "../../components/StatCard";
 import { Building2, Users, BookOpen, FileText, Trophy, Award } from "lucide-react";
 

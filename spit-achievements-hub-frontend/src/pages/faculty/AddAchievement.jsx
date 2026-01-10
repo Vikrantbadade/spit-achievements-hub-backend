@@ -13,7 +13,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Upload } from "lucide-react";
 
-import api from "@/lib/axios";
+import api from "@/lib/api";
 
 const categories = [
   { value: "Publication", label: "Publication" },
