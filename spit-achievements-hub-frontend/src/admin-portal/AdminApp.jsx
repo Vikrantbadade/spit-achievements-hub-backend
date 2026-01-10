@@ -8,6 +8,7 @@ import AuditLogs from './pages/AuditLogs';
 import RolesAndPermissions from './pages/Roles';
 import AdminReports from './pages/AdminReports';
 import AdminAchievements from './pages/AdminAchievements';
+import SystemHealth from './pages/SystemHealth';
 
 export default function AdminApp() {
     return (
@@ -20,6 +21,7 @@ export default function AdminApp() {
                     <Route path="roles" element={<RolesAndPermissions />} />
                     <Route path="reports" element={<AdminReports />} />
                     <Route path="achievements" element={<AdminAchievements />} />
+                    <Route path="health" element={<SystemHealth />} />
                     <Route path="logs" element={<AuditLogs />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/admin" replace />} />

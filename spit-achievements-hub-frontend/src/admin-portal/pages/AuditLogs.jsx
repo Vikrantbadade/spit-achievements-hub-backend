@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../lib/axios';
+import api from '../../lib/api';
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AuditLogs() {

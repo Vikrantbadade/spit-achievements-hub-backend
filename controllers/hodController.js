@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Achievement = require('../models/Achievement');
+const { sendApprovalNotification, sendRejectionNotification } = require('../utils/emailService');
 
 // Helper: Get all faculty IDs in HOD's department
 const getDepartmentFacultyIds = async (department) => {
@@ -95,6 +96,11 @@ exports.approveAchievement = async (req, res) => {
 
     await achievement.save();
 
+    // Send Email Notification
+    if (achievement.faculty && achievement.faculty.email) {
+      await sendApprovalNotification(achievement.faculty.email, achievement.faculty.name, achievement.title);
+    }
+
     res.status(200).json({ message: "Achievement Approved Successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
@@ -124,6 +130,11 @@ exports.rejectAchievement = async (req, res) => {
     achievement.rejectionReason = req.body.reason || "Documents insufficient";
 
     await achievement.save();
+
+    // Send Email Notification
+    if (achievement.faculty && achievement.faculty.email) {
+      await sendRejectionNotification(achievement.faculty.email, achievement.faculty.name, achievement.title, achievement.rejectionReason);
+    }
 
     res.status(200).json({ message: "Achievement Rejected" });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Shield, FileText, LogOut, BarChart3, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, FileText, LogOut, BarChart3, CheckSquare, Activity } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { cn } from '../lib/utils';
 
@@ -12,6 +12,7 @@ export default function Sidebar() {
         { to: '/admin/roles', icon: Shield, label: 'Roles & Permissions' },
         { to: '/admin/reports', icon: BarChart3, label: 'Faculty Reports' },
         { to: '/admin/achievements', icon: CheckSquare, label: 'Manage Approvals' },
+        { to: '/admin/health', icon: Activity, label: 'System Health' },
         { to: '/admin/logs', icon: FileText, label: 'Audit Logs' },
     ];
 

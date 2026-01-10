@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Department = require('../models/Department');
 const Achievement = require('../models/Achievement');
 const AuditLog = require('../models/AuditLog');
+const { sendApprovalNotification, sendRejectionNotification } = require('../utils/emailService');
 
 // @desc    Get all users (with optional role/dept filter)
 // @route   GET /api/v1/admin/users
@@ -214,7 +215,7 @@ exports.getAllAchievements = async (req, res) => {
 // @access  Admin
 exports.approveAchievement = async (req, res) => {
     try {
-        const achievement = await Achievement.findById(req.params.id);
+        const achievement = await Achievement.findById(req.params.id).populate('faculty', 'name email');
 
         if (!achievement) {
             return res.status(404).json({ message: "Achievement not found" });
@@ -226,6 +227,11 @@ exports.approveAchievement = async (req, res) => {
         achievement.rejectionReason = null; // Clear previous rejection
 
         await achievement.save();
+
+        // Send Email Notification
+        if (achievement.faculty && achievement.faculty.email) {
+            await sendApprovalNotification(achievement.faculty.email, achievement.faculty.name, achievement.title);
+        }
 
         // Log action
         await AuditLog.create({
@@ -247,7 +253,7 @@ exports.approveAchievement = async (req, res) => {
 // @access  Admin
 exports.rejectAchievement = async (req, res) => {
     try {
-        const achievement = await Achievement.findById(req.params.id);
+        const achievement = await Achievement.findById(req.params.id).populate('faculty', 'name email');
 
         if (!achievement) {
             return res.status(404).json({ message: "Achievement not found" });
@@ -260,6 +266,11 @@ exports.rejectAchievement = async (req, res) => {
 
         await achievement.save();
 
+        // Send Email Notification
+        if (achievement.faculty && achievement.faculty.email) {
+            await sendRejectionNotification(achievement.faculty.email, achievement.faculty.name, achievement.title, achievement.rejectionReason);
+        }
+
         // Log action
         await AuditLog.create({
             actor: req.user._id,
@@ -270,6 +281,24 @@ exports.rejectAchievement = async (req, res) => {
         });
 
         res.status(200).json({ message: "Achievement Rejected" });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get System Health (Uptime, Memory)
+// @route   GET /api/v1/admin/health
+// @access  Admin
+exports.getSystemHealth = async (req, res) => {
+    try {
+        const health = {
+            uptime: process.uptime(),
+            memoryUsage: process.memoryUsage(),
+            timestamp: Date.now(),
+            nodeVersion: process.version,
+            pid: process.pid
+        };
+        res.json(health);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

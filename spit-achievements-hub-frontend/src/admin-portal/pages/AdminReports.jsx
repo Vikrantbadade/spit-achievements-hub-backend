@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import api from "../lib/axios"; // Use the admin portal axios instance
+import api from '../../lib/api'; // Use the admin portal axios instance
 import { Button } from "@/components/ui/button";
 import {
     Select,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../lib/axios';
+import api from '../../lib/api';
 import { Users, Building2, GraduationCap, ShieldAlert } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { cn } from '../lib/utils';

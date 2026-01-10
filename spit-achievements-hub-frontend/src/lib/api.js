@@ -11,7 +11,10 @@ const api = axios.create({
 // Request interceptor to add the auth token header to every request
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('authToken');
+        // Check for either token. Priority doesn't matter much as usually only one exists.
+        // If both exist, we might default to authToken, but for admin specific routes, it might be an issue.
+        // However, in this app structure, they seem distinct.
+        const token = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -28,11 +31,16 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        // Optional: Handle 401 specifically if you want auto-logout
         if (error.response && error.response.status === 401) {
-            // You might want to trigger a logout action here or emit an event
-            // For now detailed handling can be done in components
-            console.error("Unauthorized access, token might be invalid/expired.");
+            console.error("Unauthorized access - clearing session.");
+            // Clear both potential tokens to be safe
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userInfo');
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUserInfo');
+
+            // Optional: Redirect to login if needed, or let the UI components react to the cleared state
+            // window.location.href = '/login'; 
         }
         return Promise.reject(error);
     }

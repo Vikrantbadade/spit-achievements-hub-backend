@@ -1,4 +1,6 @@
 const Achievement = require('../models/Achievement');
+const User = require('../models/User'); // Import User model to find HOD
+const { sendNewSubmissionNotification } = require('../utils/emailService');
 
 exports.addAchievement = async (req, res) => {
   try {
@@ -8,6 +10,12 @@ exports.addAchievement = async (req, res) => {
       faculty: req.user._id,
       department: req.user.department // Auto-tagged with faculty's department
     });
+
+    // Notify Department HOD
+    const hod = await User.findOne({ role: 'HOD', department: req.user.department });
+    if (hod && hod.email) {
+      await sendNewSubmissionNotification(hod.email, req.user.name, title);
+    }
     res.status(201).json(achievement);
   } catch (error) { res.status(500).json({ message: error.message }); }
 };

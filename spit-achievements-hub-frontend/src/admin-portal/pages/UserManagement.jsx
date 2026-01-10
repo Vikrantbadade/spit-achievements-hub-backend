@@ -2,7 +2,7 @@
 // Allows Admins to Create, Read, Update, and Delete users.
 // UPDATED: Displays Plain Text Password and Hash for verification purposes.
 import { useEffect, useState } from 'react';
-import api from '../lib/axios';
+import api from '../../lib/api';
 import { Plus, Pencil, Trash2, Search, X } from 'lucide-react';
 
 export default function UserManagement() {

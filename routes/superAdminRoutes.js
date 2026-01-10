@@ -8,6 +8,7 @@ const {
     deleteUser,
     getDashboardStats,
     getSystemLogs,
+    getSystemHealth, // Import new method
     getAllAchievements,
     approveAchievement,
     rejectAchievement
@@ -22,7 +23,8 @@ router.post('/users', createUser);
 router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 
-router.get('/stats', getDashboardStats);
+router.route('/stats').get(protect, authorize('Admin'), getDashboardStats);
+router.route('/health').get(protect, authorize('Admin'), getSystemHealth); // New Route
 router.get('/logs', getSystemLogs);
 router.get('/achievements', getAllAchievements);
 router.put('/achievements/:id/approve', approveAchievement);
