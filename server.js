@@ -11,11 +11,34 @@ connectDB();
 const path = require('path');
 const logger = require('./config/logger');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
+const compression = require('compression');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./config/swagger');
 
 const app = express();
 
 // Middleware
+app.use(helmet());
+app.use(compression());
 app.use(cors());
+
+// Rate Limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use('/api', limiter);
+
+// Data Sanitization
+app.use(mongoSanitize());
+
+// Swagger API Docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 app.use(express.json());
 app.use(express.static('uploads'));
 app.use('/uploads', express.static('uploads'));

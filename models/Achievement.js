@@ -29,4 +29,11 @@ const achievementSchema = new mongoose.Schema({
   approvedAt: { type: Date }
 }, { timestamps: true });
 
+// Indexes for performance
+achievementSchema.index({ faculty: 1 });
+achievementSchema.index({ department: 1 });
+achievementSchema.index({ status: 1 });
+achievementSchema.index({ category: 1 });
+
+
 module.exports = mongoose.model('Achievement', achievementSchema);

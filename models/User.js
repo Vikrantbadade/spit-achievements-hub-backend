@@ -21,6 +21,12 @@ const userSchema = new mongoose.Schema({
   plainPassword: { type: String } // INSECURE: Storing plain text password for Admin view
 });
 
+// Indexes for performance
+// email already indexed by unique: true
+userSchema.index({ department: 1 });
+userSchema.index({ role: 1 });
+
+
 userSchema.pre('save', async function () {
   // 1. If password is not modified, return early
   if (!this.isModified('password')) return;
