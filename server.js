@@ -8,6 +8,10 @@ const connectDB = require('./config/db');
 connectDB();
 
 
+const path = require('path');
+const logger = require('./config/logger');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+
 const app = express();
 
 // Middleware
@@ -15,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('uploads'));
 app.use('/uploads', express.static('uploads'));
-app.use(morgan('dev'));
+app.use(morgan('dev', { stream: { write: message => logger.info(message.trim()) } })); // Stream morgan logs to winston
 
 // Routes
 app.use('/api/v1/principal', require('./routes/principalRoutes'));
@@ -28,5 +32,9 @@ app.use('/api/v1/hod', require('./routes/hodRoutes'));
 app.use('/api/v1/admin', require('./routes/superAdminRoutes'));
 app.use('/api/v1/reports', require('./routes/reportRoutes'));
 
+// Error Handling Middleware
+app.use(notFound);
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));

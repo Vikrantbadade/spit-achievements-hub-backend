@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - /app/node_modules
+    restart: always
+
+  frontend:
+    build: ./spit-achievements-hub-frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+      - PROXY_TARGET=http://backend:5000
+    volumes:
+      - ./spit-achievements-hub-frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: always

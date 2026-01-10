@@ -17,6 +17,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { GraduationCap, Users, Crown } from "lucide-react";
 import LogoSPIT from "../assets/LogoSPIT.png";
+import api from "../lib/api";
 
 const roles = [
   { value: "faculty", label: "Faculty", icon: GraduationCap, path: "/faculty" },
@@ -68,19 +69,9 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/v1/auth/signin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
+      // Replaced fetch with api.post
+      const response = await api.post('/auth/signin', { email, password });
+      const data = response.data;
 
       // 1. Verify Role
       if (data.role.toLowerCase() !== role.toLowerCase()) {
@@ -114,9 +105,10 @@ const Login = () => {
       navigate(selectedRole.path);
 
     } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || "Login failed";
       toast({
         title: "Login Failed",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
