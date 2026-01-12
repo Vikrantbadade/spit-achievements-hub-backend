@@ -1,0 +1,42 @@
+name: Automated Testing
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+
+    - name: Run Backend Tests (Jest)
+      run: npm test
+      env:
+        CI: true
+
+    # For E2E, we need to start the server. 
+    # Since we don't have a standardized "start-all" script yet, we might skip E2E for this iteration 
+    # OR we use a service container/background process.
+    # Let's try running the backend in background, then frontend, then test.
+    # For now, let's keep it simple: Backend Tests + Build Verification.
+    # We will enable full E2E in CI later once we have a mock DB strategy for full system.
+    
+    # - name: Run E2E Tests (Playwright)
+    #   run: npx playwright test

@@ -7,7 +7,8 @@ const morgan = require('morgan');
 const connectDB = require('./config/db');
 
 // Connect Database
-connectDB();
+// Connect Database called conditionally below
+// connectDB();
 
 
 const path = require('path');
@@ -68,20 +69,28 @@ app.use('/api/v1/reports', require('./routes/reportRoutes'));
 app.use(notFound);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
+// Conditional Database Connection and Server Start
+if (require.main === module) {
+    // Connect Database only if running directly
+    connectDB();
 
-// Graceful Shutdown
-const gracefulShutdown = () => {
-    logger.info('Received shutdown signal. Closing server...');
-    server.close(() => {
-        logger.info('HTTP server closed.');
-        mongoose.connection.close(false, () => {
-            logger.info('MongoDB connection closed.');
-            process.exit(0);
+    const PORT = process.env.PORT || 5000;
+    const server = app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
+
+    // Graceful Shutdown
+    const gracefulShutdown = () => {
+        logger.info('Received shutdown signal. Closing server...');
+        server.close(() => {
+            logger.info('HTTP server closed.');
+            mongoose.connection.close(false, () => {
+                logger.info('MongoDB connection closed.');
+                process.exit(0);
+            });
         });
-    });
-};
+    };
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+    process.on('SIGTERM', gracefulShutdown);
+    process.on('SIGINT', gracefulShutdown);
+}
+
+module.exports = app;

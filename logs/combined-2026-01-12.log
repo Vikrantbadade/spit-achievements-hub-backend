@@ -1,0 +1,11 @@
+2026-01-12 15:29:33 [INFO]: Email Transporter Connected Successfully
+2026-01-12 15:32:28 [INFO]: Email Transporter Connected Successfully
+2026-01-12 15:40:01 [INFO]: [0mPOST /api/v1/auth/signin [32m200[0m 123.371 ms - 414[0m
+2026-01-12 15:40:01 [INFO]: [0mPOST /api/v1/auth/signin [33m401[0m 72.392 ms - 33[0m
+2026-01-12 15:40:05 [WARN]: Email Transporter Connection Failed: connect ENETUNREACH 2404:6800:4003:c06::6d:465
+2026-01-12 15:41:03 [INFO]: [0mPOST /api/v1/auth/signin [32m200[0m 88.171 ms - 414[0m
+2026-01-12 15:41:03 [INFO]: [0mPOST /api/v1/auth/signin [33m401[0m 68.767 ms - 33[0m
+2026-01-12 15:41:25 [INFO]: [0mPOST /api/v1/auth/signin [32m200[0m 89.682 ms - 414[0m
+2026-01-12 15:41:25 [INFO]: [0mPOST /api/v1/auth/signin [33m401[0m 69.787 ms - 33[0m
+2026-01-12 15:41:49 [INFO]: [0mPOST /api/v1/auth/signin [32m200[0m 91.114 ms - 414[0m
+2026-01-12 15:41:49 [INFO]: [0mPOST /api/v1/auth/signin [33m401[0m 81.490 ms - 33[0m
