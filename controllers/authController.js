@@ -60,8 +60,9 @@ exports.forgotPassword = async (req, res, next) => {
     // Create Reset URL
     // frontend URL usually, or backend API URL that redirects
     // Here we point to the FRONTEND Reset Page
-    // Updated to port 8080 (Docker) - Ideally use process.env.FRONTEND_URL
-    const resetUrl = `http://localhost:8080/reset-password/${resetToken}`;
+    // Updated to use environment variable
+    const clientUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${resetUrl}`;
 
