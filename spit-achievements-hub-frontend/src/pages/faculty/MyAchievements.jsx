@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
+import { getYearRange } from "@/utils/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +31,7 @@ import {
 const MyAchievements = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [filterYear, setFilterYear] = useState("all");
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
   const [achievements, setAchievements] = useState([]);
@@ -57,7 +59,11 @@ const MyAchievements = () => {
     const matchesCategory =
       filterCategory === "all" ||
       achievement.category.toLowerCase() === filterCategory.toLowerCase();
-    return matchesSearch && matchesCategory;
+
+    const achievementYear = new Date(achievement.achievementDate).getFullYear().toString();
+    const matchesYear = filterYear === "all" || achievementYear === filterYear;
+
+    return matchesSearch && matchesCategory && matchesYear;
   });
 
   const handleDelete = async (id) => {
@@ -91,6 +97,19 @@ const MyAchievements = () => {
             className="pl-10"
           />
         </div>
+        <Select value={filterYear} onValueChange={setFilterYear}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Year" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Years</SelectItem>
+            {getYearRange().map((year) => (
+              <SelectItem key={year} value={year}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={filterCategory} onValueChange={setFilterCategory}>
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by category" />

@@ -43,6 +43,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { generateReportPDF } from "@/utils/pdfGenerator";
+import { getYearRange } from "@/utils/dateUtils";
 
 const monthOptions = [
   "january", "february", "march", "april", "may", "june",
@@ -72,14 +73,8 @@ const FacultyReports = () => {
     fetchAchievements();
   }, []);
 
-  // Dynamic Year Options
-  const availableYears = useMemo(() => {
-    const years = [...new Set([
-      new Date().getFullYear().toString(),
-      ...achievements.map(a => new Date(a.achievementDate).getFullYear().toString())
-    ])];
-    return years.sort((a, b) => b - a);
-  }, [achievements]);
+  // Dynamic Year Options - Replaced with Standard Range
+  const availableYears = getYearRange();
 
   // Filter Logic
   const getFilteredData = (view, year, month, semester) => {

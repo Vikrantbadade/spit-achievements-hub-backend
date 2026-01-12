@@ -12,6 +12,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 import AdminApp from "./admin-portal/AdminApp";
 
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -25,6 +28,8 @@ const App = () => (
             <Route path="/admin/*" element={<AdminApp />} />
             <Route path="/" element={<Login />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             <Route
               path="/faculty/*"
               element={

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
+import { getYearRange } from "@/utils/dateUtils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -36,6 +37,7 @@ const DepartmentAchievements = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterFaculty, setFilterFaculty] = useState("all");
+  const [filterYear, setFilterYear] = useState("all");
   const { user } = useAuth();
 
   const [rejectId, setRejectId] = useState(null);
@@ -114,7 +116,10 @@ const DepartmentAchievements = () => {
     const matchesFaculty =
       filterFaculty === "all" || facultyName === filterFaculty;
 
-    return matchesSearch && matchesCategory && matchesFaculty;
+    const achievementYear = new Date(achievement.achievementDate).getFullYear().toString();
+    const matchesYear = filterYear === "all" || achievementYear === filterYear;
+
+    return matchesSearch && matchesCategory && matchesFaculty && matchesYear;
   });
 
   const uniqueFaculty = [...new Set(achievements.map((a) => a.faculty?.name || 'Unknown'))].filter(Boolean);
@@ -151,6 +156,19 @@ const DepartmentAchievements = () => {
             {uniqueFaculty.map((faculty) => (
               <SelectItem key={faculty} value={faculty}>
                 {faculty}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterYear} onValueChange={setFilterYear}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Year" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Years</SelectItem>
+            {getYearRange().map((year) => (
+              <SelectItem key={year} value={year}>
+                {year}
               </SelectItem>
             ))}
           </SelectContent>

@@ -38,6 +38,7 @@ import {
 } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import { generateReportPDF } from "@/utils/pdfGenerator";
+import { getYearRange } from "@/utils/dateUtils";
 
 const HODReports = () => {
   const [selectedMonth, setSelectedMonth] = useState("december");
@@ -67,13 +68,7 @@ const HODReports = () => {
     fetchData();
   }, []);
 
-  const availableYears = useMemo(() => {
-    const years = [...new Set([
-      new Date().getFullYear().toString(),
-      ...achievements.map(a => new Date(a.achievementDate).getFullYear().toString())
-    ])];
-    return years.sort((a, b) => b - a);
-  }, [achievements]);
+  const availableYears = getYearRange();
 
   // Filter Logic
   const getFilteredData = (view) => {

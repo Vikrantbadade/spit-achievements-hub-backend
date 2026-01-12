@@ -67,5 +67,6 @@ const sendNewSubmissionNotification = async (hodEmail, facultyName, achievementT
 module.exports = {
     sendApprovalNotification,
     sendRejectionNotification,
-    sendNewSubmissionNotification
+    sendNewSubmissionNotification,
+    sendEmailGeneric: sendEmail // Export generic sender
 };

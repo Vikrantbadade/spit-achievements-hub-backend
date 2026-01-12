@@ -40,6 +40,7 @@ import {
 import { ChartContainer } from "@/components/ui/chart";
 import { generateReportPDF } from "@/utils/pdfGenerator";
 import { useAuth } from "@/context/AuthContext";
+import { getYearRange } from "@/utils/dateUtils";
 
 const monthOptions = [
   "january", "february", "march", "april", "may", "june",
@@ -408,9 +409,9 @@ const InstituteReports = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2025">2025</SelectItem>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2023">2023</SelectItem>
+                      {getYearRange().map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Button onClick={handleExportPDF} variant="default" size="sm" className="gap-2">
@@ -464,9 +465,9 @@ const InstituteReports = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2025">2025</SelectItem>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2023">2023</SelectItem>
+                      {getYearRange().map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Button onClick={handleExportExcel} variant="default" size="sm" className="gap-2">
@@ -520,9 +521,9 @@ const InstituteReports = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
+                  {getYearRange().map((year) => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Button onClick={handleExportExcel} variant="default" size="sm" className="gap-2">

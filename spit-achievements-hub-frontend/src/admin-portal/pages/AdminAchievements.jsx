@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../../lib/api";
+import { getYearRange } from "@/utils/dateUtils";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -34,6 +35,7 @@ const AdminAchievements = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterDepartment, setFilterDepartment] = useState("all");
     const [filterCategory, setFilterCategory] = useState("all");
+    const [filterYear, setFilterYear] = useState("all");
     const [departments, setDepartments] = useState([]);
 
     const [rejectId, setRejectId] = useState(null);
@@ -108,7 +110,10 @@ const AdminAchievements = () => {
             filterDepartment === "all" ||
             deptId === filterDepartment;
 
-        return matchesSearch && matchesCategory && matchesDepartment;
+        const achievementYear = new Date(achievement.achievementDate).getFullYear().toString();
+        const matchesYear = filterYear === "all" || achievementYear === filterYear;
+
+        return matchesSearch && matchesCategory && matchesDepartment && matchesYear;
     });
 
     if (loading) return <div>Loading...</div>;
@@ -143,6 +148,19 @@ const AdminAchievements = () => {
                         {departments.map((dept) => (
                             <SelectItem key={dept._id} value={dept._id}>
                                 {dept.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={filterYear} onValueChange={setFilterYear}>
+                    <SelectTrigger className="w-full sm:w-40">
+                        <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Years</SelectItem>
+                        {getYearRange().map((year) => (
+                            <SelectItem key={year} value={year}>
+                                {year}
                             </SelectItem>
                         ))}
                     </SelectContent>

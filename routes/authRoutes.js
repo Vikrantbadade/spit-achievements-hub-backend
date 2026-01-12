@@ -44,6 +44,11 @@ router.post('/signin', async (req, res) => {
 
 
 
+const { forgotPassword, resetPassword } = require('../controllers/authController');
+
+router.post('/forgotpassword', forgotPassword);
+router.put('/resetpassword/:resettoken', resetPassword);
+
 // POST /api/v1/auth/create-user
 router.post('/create-user', protect, authorize('Principal', 'HOD'), async (req, res, next) => {
   try {
